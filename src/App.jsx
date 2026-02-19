@@ -1,18 +1,31 @@
 import { useState, useEffect } from 'react';
 import Tablero from './components/tablero';
+import { TABLEROS } from './constants/configuracion'; 
+
+// Usamos el valor del configuracion.js
+const TAM = TABLEROS.ESTANDAR_TAM;
 
 //Crear mapa
-const getMapa = () => [
-  [0, 1, 0, 0, 0],
-  [0, 1, 0, 0, 0],
-  [0, 0, 0, 1, 1],
-  [0, 0, 0, 0, 0],
-  [1, 1, 1, 0, 0]
-];
+const generarTab = () => {
+  const tablero = Array(TAM).fill(null).map(() => Array(TAM).fill(0));
+  
+  // Poner 3 barcos para probar
+  tablero[2][0] = 1;
+  tablero[2][1] = 1;
+  tablero[2][2] = 1;
+  tablero[5][0] = 1;
+  tablero[5][1] = 1;
+  tablero[5][2] = 1;
+  tablero[8][0] = 1;
+  tablero[8][1] = 1;
+  tablero[8][2] = 1;
+
+  return tablero;
+};
 
 function App() {
-  const [mios, Mios] = useState(getMapa());
-  const [enemigos, Enemigos] = useState(getMapa());
+  const [mios, Mios] = useState(generarTab());
+  const [enemigos, Enemigos] = useState(generarTab());
   const [turnoMio, TurnoMio] = useState(true);
 
   //Ver si alguno ha ganado
@@ -27,8 +40,8 @@ function App() {
         let f, c;
         
         do { 
-        f = Math.floor(Math.random()*5);
-        c = Math.floor(Math.random()*5); 
+            f = Math.floor(Math.random()*10);
+            c = Math.floor(Math.random()*10); 
         }while (mios[f][c] > 1);
 
         const nuevo = mios.map(fila => [...fila]);
@@ -38,9 +51,8 @@ function App() {
         Mios(nuevo); // Actualizar tablero
         if (!acierto) TurnoMio(true); // Solo cambio turno si falla
       }, 1500); // Ponemos algo de tiempo de epsera para q no sea caotico
-      return () => clearTimeout(timer);
     }
-  }, [turnoMio, mios, fin]); // Al depender de 'mios', si acierta, repite disparo
+  }, [turnoMio, mios, fin]); // Al depender de mios si acierta repite disparo
 
   // Mis disparos
   const disparar = (f, c) => {

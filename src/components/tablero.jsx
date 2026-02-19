@@ -1,10 +1,11 @@
 import Celda from './celda';
 
 function Tablero({ cuadricula, alDisparar, esIA }) {
+  const tamano = cuadricula.length;
   return (
     <div style={{
       display: 'grid', 
-      gridTemplateColumns: 'repeat(5, 40px)', 
+      gridTemplateColumns: `repeat(${tamano}, 30px)`, 
       gap: '4px',
       backgroundColor: '#222', 
       padding: '10px', 
