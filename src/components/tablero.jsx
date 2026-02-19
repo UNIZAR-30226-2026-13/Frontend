@@ -7,7 +7,7 @@ function Tablero() {
     [0, 1, 0, 0, 0],
     [0, 0, 0, 0, 1],
     [0, 0, 0, 0, 1],
-    [0, 0, 2, 0, 0],
+    [0, 0, 1, 0, 0],
   ]);
 
   const manejarDisparo = (fila, columna) => {

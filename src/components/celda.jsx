@@ -1,16 +1,20 @@
-// Definimos el componente Celda
-// Recibe "props": el valor (agua, barco, etc.) y la función para cuando hagan clic
-function Celda({ valor, alHacerClic }) {
+
+function Celda({ valor, alClickar }) {
   
   const mostrarContenido = () => {
     if (valor === 0) return "";    // Agua no tocada
-    if (valor === 1) return "barco"; // Barco (esto solo se vería en MI tablero)
-    if (valor === 2) return "tocado"; // Tocado (le dimos a un barco)
-    if (valor === 3) return "agua"; // Fallo (le dimos al agua)
+    if (valor === 1) return ""; // Barco 
+    if (valor === 2) return "🔥"; // Tocado 
+    if (valor === 3) return ""; // Fallo 
     return "";
   };
 
-  // Estilos básicos para la celda
+  const obtenerColorDeFondo = () => {
+    if (valor === 2) return "#555555"; 
+    if (valor === 3) return "#2abbeb"; 
+    return "#100b0b"; 
+  };
+
   const estiloCelda = {
     width: '50px',
     height: '50px',
@@ -20,11 +24,12 @@ function Celda({ valor, alHacerClic }) {
     justifyContent: 'center',
     fontSize: '24px',
     cursor: 'pointer',
-    backgroundColor: valor === 3 ? '#2abbeb' : '#100b0b' // Azul si es agua, gris si no
+    backgroundColor: obtenerColorDeFondo(), 
+    transition: 'background-color 0.3s ease' 
   };
 
   return (
-    <div style={estiloCelda} onClick={alHacerClic}>
+    <div style={estiloCelda} onClick={alClickar}>
       {mostrarContenido()}
     </div>
   );
