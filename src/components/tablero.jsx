@@ -44,5 +44,5 @@ function Tablero() {
     </div>
   );
 }
-
+///Comprobaar
 export default Tablero;
