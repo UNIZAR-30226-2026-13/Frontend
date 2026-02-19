@@ -1,48 +1,26 @@
-import { useState } from 'react';
-import Celda from './celda'; 
+import Celda from './celda';
 
-function Tablero() {
-  const [cuadricula, setCuadricula] = useState([
-    [0, 1, 0, 0, 0],
-    [0, 1, 0, 0, 0],
-    [0, 0, 0, 0, 1],
-    [0, 0, 0, 0, 1],
-    [0, 0, 1, 0, 0],
-  ]);
-
-  const manejarDisparo = (fila, columna) => {
-    const valorActual = cuadricula[fila][columna];
-    if (valorActual === 2 || valorActual === 3) return;
-
-    const nuevaCuadricula = cuadricula.map(f => [...f]);
-
-    if (valorActual === 1) {
-      nuevaCuadricula[fila][columna] = 2;
-    } else {
-      nuevaCuadricula[fila][columna] = 3;
-    }
-    setCuadricula(nuevaCuadricula);
-  };
-
+function Tablero({ cuadricula, alDisparar, esIA }) {
   return (
     <div style={{
-      display: 'grid',
-      gridTemplateColumns: 'repeat(5, 50px)', 
-      gap: '5px',
-      justifyContent: 'center',
-      marginTop: '20px'
+      display: 'grid', 
+      gridTemplateColumns: 'repeat(5, 40px)', 
+      gap: '4px',
+      backgroundColor: '#222', 
+      padding: '10px', 
+      borderRadius: '8px'
     }}>
-      {cuadricula.map((fila, indiceFila) => 
-        fila.map((valorCelda, indiceColumna) => (
+      {cuadricula.map((fila, i) => 
+        fila.map((valor, j) => (
           <Celda 
-            key={`${indiceFila}-${indiceColumna}`} 
-            valor={valorCelda} 
-            alClickar={() => manejarDisparo(indiceFila, indiceColumna)}
+            key={`${i}-${j}`} 
+            valor={valor} 
+            esIA={esIA}
+            alClickar={() => alDisparar(i, j)} 
           />
         ))
       )}
     </div>
   );
 }
-///Comprobaar
 export default Tablero;
