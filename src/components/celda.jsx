@@ -1,11 +1,13 @@
+import { ESTADOS_CASILLAS } from '../constants/configuracion';
+
 function Celda({ valor, alClickar, esIA }) {
   const obtenerColor = () => {
-    if (valor === 2) return "#4b5563"; // si esta tocado se pone gris ( mas sencillo por ahora y visible)
-    if (valor === 3) return "#3b82f6"; // si es agua se pone azul
-    if (esIA && valor === 1) return "#100b0b"; // Barcos del enemigo
-    if (!esIA && valor === 1) return "#4b5563"; // Tus barcos
-    
-    return "#100b0b"; // Negro por defecto
+    switch (valor) {
+      case ESTADOS_CASILLAS.TOCADO: return "#4b5563"; // si esta tocado se pone gris 
+      case ESTADOS_CASILLAS.AGUA: return "#3b82f6"; // si es agua se pone azul
+      case ESTADOS_CASILLAS.BARCO: return esIA ? "#100b0b" : "#4b5563"; // Barcos del enemigo o tuyos
+      default: return "#100b0b"; //
+    }
   };
 
   return (
@@ -24,8 +26,7 @@ function Celda({ valor, alClickar, esIA }) {
         transition: 'all 0.2s'
       }}
     >
-      {valor === 2 && "🔥"}
-      {valor === 3 && ""}
+      {valor === ESTADOS_CASILLAS.TOCADO && "🔥"}
     </div>
   );
 }

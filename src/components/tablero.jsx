@@ -5,7 +5,7 @@ function Tablero({ cuadricula, alDisparar, esIA }) {
   return (
     <div style={{
       display: 'grid', 
-      gridTemplateColumns: `repeat(${tamano}, 30px)`, 
+      gridTemplateColumns: `repeat(${tamano}, 40px)`, 
       gap: '4px',
       backgroundColor: '#222', 
       padding: '10px', 

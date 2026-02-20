@@ -1,69 +1,99 @@
 import { useState, useEffect } from 'react';
 import Tablero from './components/tablero';
-import { TABLEROS } from './constants/configuracion'; 
+import Barcos from './components/barcos';
+import { TABLEROS, ESTADOS_CASILLAS } from './constants/configuracion'; 
 
 // Usamos el valor del configuracion.js
 const TAM = TABLEROS.ESTANDAR_TAM;
 
 //Crear mapa
-const generarTab = () => {
-  const tablero = Array(TAM).fill(null).map(() => Array(TAM).fill(0));
-  
-  // Poner 3 barcos para probar
-  tablero[2][0] = 1;
-  tablero[2][1] = 1;
-  tablero[2][2] = 1;
-  tablero[5][0] = 1;
-  tablero[5][1] = 1;
-  tablero[5][2] = 1;
-  tablero[8][0] = 1;
-  tablero[8][1] = 1;
-  tablero[8][2] = 1;
-
-  return tablero;
+const generarTabVacio = () => {
+  return Array(TAM).fill(null).map(() => Array(TAM).fill(ESTADOS_CASILLAS.VACIO));
 };
 
 function App() {
-  const [mios, Mios] = useState(generarTab());
-  const [enemigos, Enemigos] = useState(generarTab());
+  const [mios, Mios] = useState(generarTabVacio());
+  const [enemigos, Enemigos] = useState(generarTabVacio());
   const [turnoMio, TurnoMio] = useState(true);
 
+  //Barcos
+  const [fase, setFase] = useState('COLOCANDO');
+  const [barcoSeleccionado, setBarcoSeleccionado] = useState(null);
+  const [orientacion, setOrientacion] = useState('H');
+  const [barcosColocados, setBarcosColocados] = useState([]);
+
   //Ver si alguno ha ganado
-  const ganoYo = !enemigos.flat().includes(1);
-  const ganaIA = !mios.flat().includes(1);
+  const ganoYo = !enemigos.flat().includes(ESTADOS_CASILLAS.BARCO);
+  const ganaIA = !mios.flat().includes(ESTADOS_CASILLAS.BARCO);
   const fin = ganoYo || ganaIA;
 
   // useEffect reacciona al cambo de turno
   useEffect(() => {
-    if (!turnoMio && !fin) {
+    if (fase === 'JUGANDO' && !turnoMio && !fin) {
       const timer = setTimeout(() => {
         let f, c;
         
         do { 
-            f = Math.floor(Math.random()*10);
-            c = Math.floor(Math.random()*10); 
-        }while (mios[f][c] > 1);
+            f = Math.floor(Math.random()*TAM);
+            c = Math.floor(Math.random()*TAM); 
+        }while (mios[f][c] === ESTADOS_CASILLAS.TOCADO || mios[f][c] == ESTADOS_CASILLAS.AGUA);
 
         const nuevo = mios.map(fila => [...fila]);
-        const acierto = nuevo[f][c] === 1;
-        nuevo[f][c] = acierto ? 2 : 3; //Si acierta se pone en tocado sino en agua
+        const acierto = nuevo[f][c] === ESTADOS_CASILLAS.BARCO;
+        nuevo[f][c] = acierto ? ESTADOS_CASILLAS.TOCADO : ESTADOS_CASILLAS.AGUA; //Si acierta se pone en tocado sino en agua
 
         Mios(nuevo); // Actualizar tablero
         if (!acierto) TurnoMio(true); // Solo cambio turno si falla
       }, 1500); // Ponemos algo de tiempo de epsera para q no sea caotico
+      return () => clearTimeout(timer); 
     }
-  }, [turnoMio, mios, fin]); // Al depender de mios si acierta repite disparo
+  }, [turnoMio, mios, fin, fase]); // Al depender de mios si acierta repite disparo
 
   // Mis disparos
   const disparar = (f, c) => {
-    if (!turnoMio || fin || enemigos[f][c] > 1) return;
+    if (fase !== 'JUGANDO' || !turnoMio || fin || enemigos[f][c] > 1) return;
 
     const nuevo = enemigos.map(fila => [...fila]);
-    const acierto = nuevo[f][c] === 1;
-    nuevo[f][c] = acierto ? 2 : 3;
+    const acierto = nuevo[f][c] === ESTADOS_CASILLAS.BARCO;
+    nuevo[f][c] = acierto ? ESTADOS_CASILLAS.TOCADO : ESTADOS_CASILLAS.AGUA;
 
     Enemigos(nuevo);
     if (!acierto) TurnoMio(false);
+  };
+
+  const colocarBarco = (f, c) => {
+    if (!barcoSeleccionado || fase !== 'COLOCANDO') return;
+
+    const nuevoTablero = mios.map(fila => [...fila]);
+    const celdasAOCupar = [];
+
+    // calcular que celdas ocuparia
+    for (let i = 0; i < barcoSeleccionado.tam; i++) {
+      const filaD = orientacion === 'V' ? f + i : f;
+      const colD = orientacion === 'H' ? c + i : c;
+
+      // ver si se sale del mapa
+      if (filaD >= TAM || colD >= TAM) {
+        alert("¡El barco se sale del tablero!");
+        return;
+      }
+      // ver si ya hay algo
+      if (nuevoTablero[filaD][colD] !== ESTADOS_CASILLAS.VACIO) {
+        alert("Casilla ocupada, elige otra posición.");
+        return;
+      }
+      celdasAOCupar.push([filaD, colD]);
+    }
+
+    // colocar barco en el tablero
+    celdasAOCupar.forEach(([fd, cd]) => {
+      nuevoTablero[fd][cd] = ESTADOS_CASILLAS.BARCO;
+    });
+
+    Mios(nuevoTablero);
+    setBarcosColocados([...barcosColocados, barcoSeleccionado]);
+    // limpio seleccion para obligar a elegir otro o el mismo de nuevo
+    setBarcoSeleccionado(null); 
   };
 
   return (
@@ -73,7 +103,7 @@ function App() {
     minHeight: '100vh',
     padding: '20px'
     }}>
-      <h1>{fin ? (ganoYo ? "¡HAS GANADO!" : "¡PERDISTE!") : (turnoMio ? "TU TURNO" : "TURNO IA...")}</h1>
+      <h1>{fase === 'COLOCANDO' ? "COLOCA TU FLOTA" : (fin ? "FIN" : (turnoMio ? "TU TURNO" : "TURNO IA..."))}</h1>
       
       {fin && <button onClick={() => window.location.reload()} style={{padding: '10px'}}>Jugar otra vez</button>}
 
@@ -82,9 +112,27 @@ function App() {
         gap: '50px',
         marginTop: '20px' 
         }}>
-        <Tablero cuadricula={mios} alDisparar={() => {}} esIA={false} />
-        <Tablero cuadricula={enemigos} alDisparar={disparar} esIA={true} />
+          <div>
+            <Tablero cuadricula={mios} alDisparar={colocarBarco} esIA={false} />
+            {fase === 'COLOCANDO' && (
+              <Barcos 
+                barcoSeleccionado={barcoSeleccionado}
+                alSeleccionar={setBarcoSeleccionado}
+                barcosColocados={barcosColocados}
+                orientacion={orientacion}
+                alCambiarOrientacion={() => setOrientacion(orientacion === 'H' ? 'V' : 'H')}
+              />
+            )}
+          </div>
+          {fase === 'JUGANDO' && (
+            <Tablero cuadricula={enemigos} alDisparar={disparar} esIA={true} />
+          )}
       </div>
+      {fase === 'COLOCANDO' && barcosColocados.length > 0 && (
+          <button onClick={() => setFase('JUGANDO')} style={{marginTop: '20px', padding: '10px 20px', cursor: 'pointer'}}>
+              ¡EMPEZAR BATALLA!
+          </button>
+      )}
     </div>
   );
 }

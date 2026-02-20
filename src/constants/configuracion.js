@@ -83,3 +83,8 @@ export const POWER_UPS_CONFIG = {
 export const RUSH_CONFIG = {
     TIPO_BARCO: BARCOS.FRA.id, CANTIDAD_BARCOS: 10
 };
+
+//CASILLAS
+export const ESTADOS_CASILLAS = {
+    VACIO: 0, BARCO: 1, TOCADO: 2, AGUA: 3, MINA: 4, ESCUDO: 5
+};
