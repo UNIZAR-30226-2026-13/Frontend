@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import Tablero from './components/tablero';
 import Barcos from './components/barcos';
-import { TABLEROS, ESTADOS_CASILLAS } from './constants/configuracion'; 
+import { BARCOS, TABLEROS, ESTADOS_CASILLAS } from './constants/configuracion'; 
 
 // Usamos el valor del configuracion.js
 const TAM = TABLEROS.ESTANDAR_TAM;
@@ -9,6 +9,43 @@ const TAM = TABLEROS.ESTANDAR_TAM;
 //Crear mapa
 const generarTabVacio = () => {
   return Array(TAM).fill(null).map(() => Array(TAM).fill(ESTADOS_CASILLAS.VACIO));
+};
+
+const generarTableroIA = () => {
+  let nuevoTablero = Array(TAM).fill(null).map(() => Array(TAM).fill(ESTADOS_CASILLAS.VACIO));
+
+  // Recorremos los tipos de barcos definidos en configuracion.js
+  Object.values(BARCOS).forEach(barcoConfig => {
+    // Colocamos la cantidad necesaria de cada barco (ej: 2 submarinos)
+    for (let i = 0; i < barcoConfig.cantidad; i++) {
+      let colocado = false;
+      while (!colocado) {
+        const orientacion = Math.random() > 0.5 ? 'H' : 'V';
+        const f = Math.floor(Math.random() * TAM);
+        const c = Math.floor(Math.random() * TAM);
+
+        // Validar si cabe y no choca
+        let cabe = true;
+        const celdas = [];
+        for (let j = 0; j < barcoConfig.tam; j++) {
+          const fD = orientacion === 'V' ? f + j : f;
+          const cD = orientacion === 'H' ? c + j : c;
+
+          if (fD >= TAM || cD >= TAM || nuevoTablero[fD][cD] !== ESTADOS_CASILLAS.VACIO) {
+            cabe = false;
+            break;
+          }
+          celdas.push([fD, cD]);
+        }
+
+        if (cabe) {
+          celdas.forEach(([fd, cd]) => nuevoTablero[fd][cd] = ESTADOS_CASILLAS.BARCO);
+          colocado = true;
+        }
+      }
+    }
+  });
+  return nuevoTablero;
 };
 
 function App() {
@@ -25,7 +62,7 @@ function App() {
   //Ver si alguno ha ganado
   const ganoYo = !enemigos.flat().includes(ESTADOS_CASILLAS.BARCO);
   const ganaIA = !mios.flat().includes(ESTADOS_CASILLAS.BARCO);
-  const fin = ganoYo || ganaIA;
+  const fin = fase === 'JUGANDO' && (ganoYo || ganaIA);
 
   // useEffect reacciona al cambo de turno
   useEffect(() => {
@@ -96,44 +133,77 @@ function App() {
     setBarcoSeleccionado(null); 
   };
 
+  const empezarBatalla = () => {
+    const tableroEnemigoConBarcos = generarTableroIA();
+    Enemigos(tableroEnemigoConBarcos);
+    setFase('JUGANDO');
+  };
+
   return (
     <div style={{ textAlign: 'center',
     background: '#1a1a1a',
     color: 'white',
     minHeight: '100vh',
-    padding: '20px'
+    padding: '20px',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center'
     }}>
-      <h1>{fase === 'COLOCANDO' ? "COLOCA TU FLOTA" : (fin ? "FIN" : (turnoMio ? "TU TURNO" : "TURNO IA..."))}</h1>
+      <h1>{fase === 'COLOCANDO' ? "COLOCA TU FLOTA" : (fin ? "FIN DE PARTIDA" : (turnoMio ? "TU TURNO" : "TURNO IA..."))}</h1>
       
       {fin && <button onClick={() => window.location.reload()} style={{padding: '10px'}}>Jugar otra vez</button>}
 
-      <div style={{ display: 'flex',
+      <div style={{ 
+        display: 'flex',
+        flexDirection: fase === 'COLOCANDO' ? 'column' : 'row',
+        alignsItems: 'center',
         justifyContent: 'center',
-        gap: '50px',
-        marginTop: '20px' 
+        gap: '40px',
+        transition: 'all 0.5s'
         }}>
-          <div>
+          <div style={{
+            transform: fase === 'JUGANDO' ? 'scale(0.8)' : 'scale(1)',
+            opacity: fase === 'JUGANDO' ? 0.7 : 1,
+            transition: 'all 0.5s'
+          }}>
+            <h3 style={{ marginBottom: '10px' }}>TU TABLERO</h3>
             <Tablero cuadricula={mios} alDisparar={colocarBarco} esIA={false} />
-            {fase === 'COLOCANDO' && (
-              <Barcos 
-                barcoSeleccionado={barcoSeleccionado}
-                alSeleccionar={setBarcoSeleccionado}
-                barcosColocados={barcosColocados}
-                orientacion={orientacion}
-                alCambiarOrientacion={() => setOrientacion(orientacion === 'H' ? 'V' : 'H')}
-              />
+            </div>
+            {fase === 'JUGANDO' && (
+              <div style={{
+                transform: 'scale(1.1)',
+                transition: 'all 0.5s',
+                boxShadow: turnoMio ? '0 0 20px #3b82f6' : 'none',
+                borderRadius: '8px',
+              }}>
+                <h3 style={{ marginBottom: '10px' }}>TABLERO ENEMIGO</h3>
+                <Tablero cuadricula={enemigos} alDisparar={disparar} esIA={true} />
+              </div>
             )}
+            {fase === 'COLOCANDO' && (
+              <>
+                <Barcos 
+                  barcoSeleccionado={barcoSeleccionado}
+                  alSeleccionar={setBarcoSeleccionado}
+                  barcosColocados={barcosColocados}
+                  orientacion={orientacion}
+                  alCambiarOrientacion={() => setOrientacion(orientacion === 'H' ? 'V' : 'H')}
+                />
+
+                {barcosColocados.length === Object.values(BARCOS).reduce((a, b) => a + b.cantidad, 0) && (
+                  <button
+                    onClick={empezarBatalla}
+                    style={{ marginTop: '30px', padding: '15px 40px', fontSize: '18px', cursor: 'pointer',
+                      background: '#10b981', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold'
+                    }}
+                  >
+                    ¡EMPEZAR BATALLA!
+                  </button>
+                )}
+              </>
+            )}   
           </div>
-          {fase === 'JUGANDO' && (
-            <Tablero cuadricula={enemigos} alDisparar={disparar} esIA={true} />
-          )}
       </div>
-      {fase === 'COLOCANDO' && barcosColocados.length > 0 && (
-          <button onClick={() => setFase('JUGANDO')} style={{marginTop: '20px', padding: '10px 20px', cursor: 'pointer'}}>
-              ¡EMPEZAR BATALLA!
-          </button>
-      )}
-    </div>
   );
 }
 

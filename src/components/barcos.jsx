@@ -8,7 +8,7 @@ function Barcos({ barcoSeleccionado, alSeleccionar, barcosColocados, orientacion
         Orientación: {orientacion === 'H' ? 'Horizontal' : 'Vertical'}
       </button>
       
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+      <div style={{ display: 'flex', flexDirection: 'row', gap: '10px' }}>
         {Object.values(BARCOS).map((barco) => {
           // Comprobar si ya hemos colocado todos los barcos de este tipo
           const cantidadColocada = barcosColocados.filter(b => b.id === barco.id).length;
