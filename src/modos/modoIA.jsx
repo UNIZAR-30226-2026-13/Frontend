@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import Tablero from '../components/tablero';
 import Barcos from '../components/barcos';
-import { BARCOS, TABLEROS, ESTADOS_CASILLAS } from '../constants/configuracion'; 
+import { BARCOS, TABLEROS, ESTADOS_CASILLAS, POWER_UPS } from '../constants/configuracion'; 
+import PowerUps from '../components/inventario';
 
 // Usamos el valor del configuracion.js
 const TAM = TABLEROS.ESTANDAR_TAM;
@@ -11,8 +12,29 @@ const generarTabVacio = () => {
   return Array(TAM).fill(null).map(() => Array(TAM).fill(ESTADOS_CASILLAS.VACIO));
 };
 
+//Crear mapa con power-ups
+const generarTabPowerUps = () => {
+  let mapa = generarTabVacio(); // Crea matriz vacía
+  const keys = Object.keys(POWER_UPS);
+  
+  // Ponemos, por ejemplo, 5 power-ups aleatorios
+  for (let i = 0; i < 5; i++) {
+    let colocado = false;
+    while (!colocado) {
+      const f = Math.floor(Math.random() * TAM);
+      const c = Math.floor(Math.random() * TAM);
+      if (mapa[f][c] === ESTADOS_CASILLAS.VACIO) {
+        const itemAleatorio = POWER_UPS[keys[Math.floor(Math.random() * keys.length)]];
+        mapa[f][c] = itemAleatorio.id; // Guardamos el ID del power-up
+        colocado = true;
+      }
+    }
+  }
+  return mapa;
+};
+
 const generarTableroIA = () => {
-  let nuevoTablero = Array(TAM).fill(null).map(() => Array(TAM).fill(ESTADOS_CASILLAS.VACIO));
+  let nuevoTablero = generarTabPowerUps();
 
   // Recorremos los tipos de barcos definidos en configuracion.js
   Object.values(BARCOS).forEach(barcoConfig => {
@@ -59,6 +81,12 @@ function modoIA({alSalir}) {
   const [orientacion, setOrientacion] = useState('H');
   const [barcosColocados, setBarcosColocados] = useState([]);
 
+  //Power-ups
+  const [powerUpsMios, setPUMios] = useState(generarTabPowerUps()); // Posiciones de PU en MI tablero
+  const [powerUpSeleccionado, setPowerUpSeleccionado] = useState(null);
+  const [powerUpsEnemigos, setPUEnemigos] = useState(generarTabPowerUps()); // Se llenará al empezar batalla
+  const [inventarioMio, setInventarioMio] = useState([]); // Power-ups que poseo
+
   //Ver si alguno ha ganado
   const ganoYo = !enemigos.flat().includes(ESTADOS_CASILLAS.BARCO);
   const ganaIA = !mios.flat().includes(ESTADOS_CASILLAS.BARCO);
@@ -90,12 +118,23 @@ function modoIA({alSalir}) {
   const disparar = (f, c) => {
     if (fase !== 'JUGANDO' || !turnoMio || fin || enemigos[f][c] > 1) return;
 
-    const nuevo = enemigos.map(fila => [...fila]);
-    const acierto = nuevo[f][c] === ESTADOS_CASILLAS.BARCO;
-    nuevo[f][c] = acierto ? ESTADOS_CASILLAS.TOCADO : ESTADOS_CASILLAS.AGUA;
+    const nuevoEnemigos = enemigos.map(fila => [...fila]);
+    const copiaPUEnemigos = powerUpsEnemigos.map(fila => [...fila]);
+    
+    const aciertoBarco = nuevoEnemigos[f][c] === ESTADOS_CASILLAS.BARCO;
+    const powerUpEncontrado = copiaPUEnemigos[f][c];
 
-    Enemigos(nuevo);
-    if (!acierto) TurnoMio(false);
+    // Si hay power-up lo recolectamos
+    if (powerUpEncontrado) {
+      setInventarioMio([...inventarioMio, POWER_UPS[powerUpEncontrado]]);
+      copiaPUEnemigos[f][c] = null; // Lo quitamos del tablero
+      setPUEnemigos(copiaPUEnemigos);
+    }
+
+    nuevoEnemigos[f][c] = aciertoBarco ? ESTADOS_CASILLAS.TOCADO : ESTADOS_CASILLAS.AGUA;
+    Enemigos(nuevoEnemigos);
+
+    if (!aciertoBarco) TurnoMio(false);
   };
 
   const colocarBarco = (f, c) => {
@@ -133,9 +172,44 @@ function modoIA({alSalir}) {
     setBarcoSeleccionado(null); 
   };
 
+  const colocarPowerUp = (f, c) => {
+    if (!powerUpSeleccionado || fase !== 'JUGANDO') return;
+
+    const nuevoTablero = powerUpsMios.map(fila => [...fila]);
+    const celdasAfectadas = [];
+
+    // calcular qué celdas afectaría
+
+    celdasAfectadas.push([f,c]);
+    nuevoTablero[f][c] = ESTADOS_CASILLAS.VACIO;
+
+    setPUMios(nuevoTablero);
+    // limpio seleccion para obligar a elegir otro o el mismo de nuevo
+    setBarcoSeleccionado(null); 
+  };
+
+  const asignarPowerUps = () => {
+    // Recolectamos PUs del jugador
+    const nuevosPUsGanados = [];
+    const powerupsMios = powerUpsMios.map(f => [...f]);
+
+    for(let f=0; f<TAM; f++) {
+      for(let c=0; c<TAM; c++) {
+        // Si hay barco mío Y hay power-up en esa casilla
+        if (mios[f][c] === ESTADOS_CASILLAS.BARCO && powerupsMios[f][c]) {
+          nuevosPUsGanados.push(POWER_UPS[powerupsMios[f][c]]);
+          powerupsMios[f][c] = null; // Se elimina del tablero porque ya se recolectó
+        }
+      }
+    }
+    setInventarioMio(nuevosPUsGanados);
+    setPUMios(powerupsMios);
+  }
+
   const empezarBatalla = () => {
     const tableroEnemigoConBarcos = generarTableroIA();
     Enemigos(tableroEnemigoConBarcos);
+    asignarPowerUps();
     setFase('JUGANDO');
   };
 
@@ -198,7 +272,12 @@ function modoIA({alSalir}) {
               }}>
                 <h3 style={{ marginBottom: '10px' }}>TABLERO ENEMIGO</h3>
                 <Tablero cuadricula={enemigos} alDisparar={disparar} esIA={true} />
+                <PowerUps 
+                  powerUpSeleccionado={powerUpSeleccionado}
+                  alSeleccionar={setPowerUpSeleccionado}
+                />
               </div>
+              
             )}
             {fase === 'COLOCANDO' && (
               <>
