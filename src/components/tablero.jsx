@@ -1,6 +1,24 @@
 import Celda from './celda';
+import { useState } from 'react';
 
-function Tablero({ cuadricula, alDisparar, esIA }) {
+function Tablero({ cuadricula, alDisparar, esIA, powerUpSeleccionado }) {
+  const [hoveredPos, setHoveredPos] = useState(null);
+
+  const debeResaltar = (i, j) => {
+    if (!hoveredPos) return false;
+
+    if (powerUpSeleccionado?.id === 'deflagrador') {
+      const { i: hF, j: hC } = hoveredPos;
+      return (i === hF && j === hC) ||
+             (i === hF - 1 && j === hC) ||
+             (i === hF + 1 && j === hC) ||
+             (i === hF && j === hC - 1) ||
+             (i === hF && j === hC + 1);
+    }
+
+    // Por defecto
+    return i === hoveredPos.i && j === hoveredPos.j;
+  };
   const tamano = cuadricula.length;
   return (
     <div style={{
@@ -18,6 +36,9 @@ function Tablero({ cuadricula, alDisparar, esIA }) {
             valor={valor} 
             esIA={esIA}
             alClickar={() => alDisparar(i, j)} 
+            estaResaltada={debeResaltar(i, j)}
+            alEntrar={() => setHoveredPos({ i, j })}
+            alSalir={() => setHoveredPos(null)}
           />
         ))
       )}

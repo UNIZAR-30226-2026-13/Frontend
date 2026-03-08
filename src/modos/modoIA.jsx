@@ -126,7 +126,8 @@ function modoIA({alSalir}) {
 
     // Si hay power-up lo recolectamos
     if (powerUpEncontrado) {
-      setInventarioMio([...inventarioMio, POWER_UPS[powerUpEncontrado]]);
+      const powerUpCompleto = Object.values(POWER_UPS).find(p => p.id === powerUpEncontrado)
+      setInventarioMio([...inventarioMio, powerUpCompleto]);
       copiaPUEnemigos[f][c] = null; // Lo quitamos del tablero
       setPUEnemigos(copiaPUEnemigos);
     }
@@ -261,7 +262,7 @@ function modoIA({alSalir}) {
             transition: 'all 0.5s'
           }}>
             <h3 style={{ marginBottom: '10px' }}>TU TABLERO</h3>
-            <Tablero cuadricula={mios} alDisparar={colocarBarco} esIA={false} />
+            <Tablero cuadricula={mios} alDisparar={colocarBarco} esIA={false} powerUpSeleccionado={powerUpSeleccionado} />
             </div>
             {fase === 'JUGANDO' && (
               <div style={{
@@ -273,6 +274,7 @@ function modoIA({alSalir}) {
                 <h3 style={{ marginBottom: '10px' }}>TABLERO ENEMIGO</h3>
                 <Tablero cuadricula={enemigos} alDisparar={disparar} esIA={true} />
                 <PowerUps 
+                  inventarioMio={inventarioMio}
                   powerUpSeleccionado={powerUpSeleccionado}
                   alSeleccionar={setPowerUpSeleccionado}
                 />

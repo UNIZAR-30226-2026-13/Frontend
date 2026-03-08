@@ -1,7 +1,9 @@
 import { ESTADOS_CASILLAS } from '../constants/configuracion';
 
-function Celda({ valor, alClickar, esIA }) {
+function Celda({ valor, alClickar, esIA, estaResaltada, alEntrar, alSalir }) {
   const obtenerColor = () => {
+
+    if (estaResaltada) return "#d7271eae"; // si esta resaltada, color zdel hover
     switch (valor) {
       case ESTADOS_CASILLAS.TOCADO: return "#4b5563"; // si esta tocado se pone gris 
       case ESTADOS_CASILLAS.AGUA: return "#3b82f6"; // si es agua se pone azul
@@ -13,6 +15,8 @@ function Celda({ valor, alClickar, esIA }) {
   return (
     <div 
       onClick={alClickar}
+      onMouseEnter={alEntrar} // Avisa al tablero que el ratón entró aquí
+      onMouseLeave={alSalir}  // Avisa que salió
       style={{
         width: '40px',
         height: '40px',
@@ -23,7 +27,8 @@ function Celda({ valor, alClickar, esIA }) {
         alignItems: 'center',
         justifyContent: 'center',
         fontSize: '20px',
-        transition: 'all 0.2s'
+        transition: 'all 0.2s',
+        boxShadow: estaResaltada ? 'inset 0 0 10px rgba(106, 42, 42, 0.41)' : 'none'
       }}
     >
       {valor === ESTADOS_CASILLAS.TOCADO && "🔥"}
