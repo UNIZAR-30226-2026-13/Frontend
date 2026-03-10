@@ -120,22 +120,67 @@ function modoIA({alSalir}) {
 
     const nuevoEnemigos = enemigos.map(fila => [...fila]);
     const copiaPUEnemigos = powerUpsEnemigos.map(fila => [...fila]);
-    
-    const aciertoBarco = nuevoEnemigos[f][c] === ESTADOS_CASILLAS.BARCO;
-    const powerUpEncontrado = copiaPUEnemigos[f][c];
+    let aciertoGlobalBarco = false;
+    let inventarioActualizado = [...inventarioMio]; // Copia local del inventario
+  
+    const celdasAfectadas = obtenerCeldasImpacto(f, c, 
+      powerUpSeleccionado?.id === 'deflagrador' ? 'deflagrador' : 'normal'
+    );
 
-    // Si hay power-up lo recolectamos
-    if (powerUpEncontrado) {
-      const powerUpCompleto = Object.values(POWER_UPS).find(p => p.id === powerUpEncontrado)
-      setInventarioMio([...inventarioMio, powerUpCompleto]);
-      copiaPUEnemigos[f][c] = null; // Lo quitamos del tablero
-      setPUEnemigos(copiaPUEnemigos);
+    celdasAfectadas.forEach(([df, dc]) => { // No hacemos nada si la celda está tocada o es agua
+      if (nuevoEnemigos[df][dc] === ESTADOS_CASILLAS.TOCADO || 
+          nuevoEnemigos[df][dc] === ESTADOS_CASILLAS.AGUA) return;
+
+      const aciertoBarco = nuevoEnemigos[df][dc] === ESTADOS_CASILLAS.BARCO;
+      nuevoEnemigos[df][dc] = aciertoBarco ? ESTADOS_CASILLAS.TOCADO : ESTADOS_CASILLAS.AGUA;
+      if (aciertoBarco) aciertoGlobalBarco = true; // Poner acierto a true si el powerup impacta
+
+      const powerUpEncontrado = copiaPUEnemigos[df][dc];
+      // Recolectar Powerup si encontrado
+      if (powerUpEncontrado) {
+        const powerUpCompleto = Object.values(POWER_UPS).find(p => p.id === powerUpEncontrado)
+        if (powerUpCompleto) {
+          inventarioActualizado.push(powerUpCompleto);
+        }
+        copiaPUEnemigos[df][dc] = null; // Lo quitamos del tablero
+      }
+    });
+
+    if (powerUpSeleccionado) {
+      const pSid = powerUpSeleccionado.id;
+      if (pSid === 'doble') {
+        aciertoGlobalBarco = true; 
+      }
+      const indice = inventarioActualizado.findIndex(p => p?.id === pSid);
+      if (indice !== -1) {
+        inventarioActualizado.splice(indice, 1);
+      }
+      setPowerUpSeleccionado(null);
     }
 
-    nuevoEnemigos[f][c] = aciertoBarco ? ESTADOS_CASILLAS.TOCADO : ESTADOS_CASILLAS.AGUA;
     Enemigos(nuevoEnemigos);
+    setPUEnemigos(copiaPUEnemigos);
+    setInventarioMio(inventarioActualizado);
 
-    if (!aciertoBarco) TurnoMio(false);
+    if (!aciertoGlobalBarco) TurnoMio(false);
+  };
+
+  const obtenerCeldasImpacto = (f, c, tipo) => {
+    const celdas = [[f, c]]; // Por defecto
+
+    if (tipo === 'deflagrador') {
+      const adyacentes = [
+        [f - 1, c], [f + 1, c], 
+        [f, c - 1], [f, c + 1]
+      ];
+      
+      adyacentes.forEach(([af, ac]) => {
+        if (af >= 0 && af < TAM && ac >= 0 && ac < TAM) {
+          celdas.push([af, ac]);
+        }
+      });
+    }
+    return celdas;
   };
 
   const colocarBarco = (f, c) => {
@@ -169,22 +214,6 @@ function modoIA({alSalir}) {
 
     Mios(nuevoTablero);
     setBarcosColocados([...barcosColocados, barcoSeleccionado]);
-    // limpio seleccion para obligar a elegir otro o el mismo de nuevo
-    setBarcoSeleccionado(null); 
-  };
-
-  const colocarPowerUp = (f, c) => {
-    if (!powerUpSeleccionado || fase !== 'JUGANDO') return;
-
-    const nuevoTablero = powerUpsMios.map(fila => [...fila]);
-    const celdasAfectadas = [];
-
-    // calcular qué celdas afectaría
-
-    celdasAfectadas.push([f,c]);
-    nuevoTablero[f][c] = ESTADOS_CASILLAS.VACIO;
-
-    setPUMios(nuevoTablero);
     // limpio seleccion para obligar a elegir otro o el mismo de nuevo
     setBarcoSeleccionado(null); 
   };
@@ -272,7 +301,7 @@ function modoIA({alSalir}) {
                 borderRadius: '8px',
               }}>
                 <h3 style={{ marginBottom: '10px' }}>TABLERO ENEMIGO</h3>
-                <Tablero cuadricula={enemigos} alDisparar={disparar} esIA={true} />
+                <Tablero cuadricula={enemigos} alDisparar={disparar} esIA={true} powerUpSeleccionado={powerUpSeleccionado}/>
                 <PowerUps 
                   inventarioMio={inventarioMio}
                   powerUpSeleccionado={powerUpSeleccionado}

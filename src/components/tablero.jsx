@@ -8,7 +8,8 @@ function Tablero({ cuadricula, alDisparar, esIA, powerUpSeleccionado }) {
     if (!hoveredPos) return false;
 
     if (powerUpSeleccionado?.id === 'deflagrador') {
-      const { i: hF, j: hC } = hoveredPos;
+      const hF = hoveredPos.i;
+      const hC = hoveredPos.j;
       return (i === hF && j === hC) ||
              (i === hF - 1 && j === hC) ||
              (i === hF + 1 && j === hC) ||
