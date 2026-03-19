@@ -39,6 +39,26 @@ const generarTableroIA = () => {
   return nuevoTablero;
 };
 
+const obtenerCeldasBarcoCompleto = (tablero, f, c) => {
+  const celdas = [[f, c]];
+  const direcciones = [[0, 1], [0, -1], [1, 0], [-1, 0]];
+
+  direcciones.forEach(([df, dc]) => {
+    let nf = f + df;
+    let nc = c + dc;
+    
+    while (
+      nf >= 0 && nf < TAM && nc >= 0 && nc < TAM && 
+      (tablero[nf][nc] === ESTADOS_CASILLAS.BARCO || tablero[nf][nc] === ESTADOS_CASILLAS.TOCADO)
+    ) {
+      celdas.push([nf, nc]);
+      nf += df;
+      nc += dc;
+    }
+  });
+  return celdas;
+};
+
 function modoIA({alSalir}) {
   const [mios, Mios] = useState(generarTabVacio());
   const [enemigos, Enemigos] = useState(generarTabVacio());
@@ -77,11 +97,28 @@ function modoIA({alSalir}) {
 
   const disparar = (f, c) => {
     if (fase !== 'JUGANDO' || !turnoMio || fin || enemigos[f][c] > 1) return;
+
     const nuevo = enemigos.map(fila => [...fila]);
-    const acierto = nuevo[f][c] === ESTADOS_CASILLAS.BARCO;
-    nuevo[f][c] = acierto ? ESTADOS_CASILLAS.TOCADO : ESTADOS_CASILLAS.AGUA;
-    Enemigos(nuevo);
-    if (!acierto) TurnoMio(false);
+
+    if (nuevo[f][c] === ESTADOS_CASILLAS.BARCO) {
+      nuevo[f][c] = ESTADOS_CASILLAS.TOCADO;
+
+      const celdasDelBarco = obtenerCeldasBarcoCompleto(nuevo, f, c);
+      const estaHundido = celdasDelBarco.every(([bf, bc]) => nuevo[bf][bc] === ESTADOS_CASILLAS.TOCADO);
+      
+      if (estaHundido) {
+        celdasDelBarco.forEach(([bf, bc]) => {
+          nuevo[bf][bc] = ESTADOS_CASILLAS.HUNDIDO;
+        });
+      }
+      Enemigos(nuevo);
+    }
+    else{
+      nuevo[f][c] = ESTADOS_CASILLAS.AGUA;
+      Enemigos(nuevo);
+      TurnoMio(false);
+    }
+    
   };
 
   const manejarHover = (f, c) => {
