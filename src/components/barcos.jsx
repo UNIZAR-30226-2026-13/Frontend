@@ -2,15 +2,35 @@ import { BARCOS } from '../constants/configuracion';
 
 function Barcos({ barcoSeleccionado, alSeleccionar, barcosColocados, orientacion, alCambiarOrientacion }) {
   return (
-    <div style={{ padding: '20px', background: '#222', borderRadius: '10px', color: 'white' }}>
-      <h3>Coloca tu flota</h3>
-      <button onClick={alCambiarOrientacion} style={{ marginBottom: '10px', padding: '5px' }}>
-        Orientación: {orientacion === 'H' ? 'Horizontal' : 'Vertical'}
-      </button>
+    <div style={{ 
+      display: 'flex', 
+      flexDirection: 'column', 
+      gap: '15px', 
+      width: '100%' 
+    }}>
+      <h3 style={{ margin: '0 0 10px 0' }}>Flota</h3>
       
-      <div style={{ display: 'flex', flexDirection: 'row', gap: '10px' }}>
+      <button 
+        onClick={alCambiarOrientacion} 
+        style={{ 
+          padding: '12px', 
+          cursor: 'pointer', 
+          background: '#3b82f6', 
+          color: 'white', 
+          border: 'none', 
+          borderRadius: '5px',
+          fontWeight: 'bold'
+        }}
+      >
+        Girar: {orientacion === 'H' ? 'Horizontal —' : 'Vertical |'}
+      </button>
+
+      <div style={{ 
+        display: 'flex', 
+        flexDirection: 'column',
+        gap: '8px' 
+      }}>
         {Object.values(BARCOS).map((barco) => {
-          // Comprobar si ya hemos colocado todos los barcos de este tipo
           const cantidadColocada = barcosColocados.filter(b => b.id === barco.id).length;
           const estaCompleto = cantidadColocada >= barco.cantidad;
 
@@ -19,16 +39,17 @@ function Barcos({ barcoSeleccionado, alSeleccionar, barcosColocados, orientacion
               key={barco.id}
               onClick={() => !estaCompleto && alSeleccionar(barco)}
               style={{
-                padding: '10px',
+                padding: '12px',
                 border: barcoSeleccionado?.id === barco.id ? '2px solid #3b82f6' : '1px solid #444',
-                backgroundColor: estaCompleto ? '#1a1a1a' : '#333',
+                backgroundColor: estaCompleto ? '#1a1a1a' : (barcoSeleccionado?.id === barco.id ? '#2d3748' : '#333'),
                 cursor: estaCompleto ? 'not-allowed' : 'pointer',
-                opacity: estaCompleto ? 0.5 : 1
+                borderRadius: '8px',
+                opacity: estaCompleto ? 0.4 : 1,
+                transition: 'all 0.2s'
               }}
             >
-              <strong>{barco.nombre}</strong> ({barco.tam} celdas)
-              <br />
-              {cantidadColocada} / {barco.cantidad}
+              <div style={{ fontWeight: 'bold', fontSize: '14px' }}>{barco.nombre}</div>
+              <div style={{ fontSize: '12px' }}>{cantidadColocada} / {barco.cantidad} unidades</div>
             </div>
           );
         })}
