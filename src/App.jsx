@@ -2,8 +2,9 @@ import { useState } from 'react';
 import Menu from './components/menu';
 import JuegoIA from './modos/modoIA';
 import JuegoLocal from './modos/modo1vs1';
-import Inicio from './components/Inicio'
-import Registro from './components/Registro'
+import Inicio from './components/Inicio';
+import Registro from './components/Registro';
+import { useGoogleLogin } from '@react-oauth/google';
 
 
 function App() {
@@ -15,9 +16,10 @@ function App() {
     setModo('MENU');
   }
   
-  /*const googleLoginApp = () => {
-
-  }*/
+  const googleLoginApp = useGoogleLogin({
+    onSuccess: (respuesta) => login(respuesta.access_token),
+    onError: () => alert('Error con Google')
+  });
 
   return (
     <div style={{ height: '100vh',
@@ -34,11 +36,11 @@ function App() {
 
       {modo === 'INICIO' && (<Inicio alAcceder={login}
                               irRegistro={() => setModo('REGISTRO')}
-                              googleLogin={() => alert('Google por hacer')}/>
+                              googleLogin={googleLoginApp}/>
                             )}
       
       {modo === 'REGISTRO' && (<Registro alVolverInicio={() => setModo('INICIO')}/>)}
-        
+
     </div>
   );
 }

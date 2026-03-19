@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import logoGoogle from '../assets/LogoGoogle.webp';
 
 function Inicio ({alAcceder, irRegistro, googleLogin}){
     const [usuario, setUsuario] = useState('');
@@ -18,7 +19,7 @@ function Inicio ({alAcceder, irRegistro, googleLogin}){
             if (res.status === 200){
               const data = await res.json();
               setCargando(false);
-              alEntrar(data.id ?? usuario);
+              alAcceder(data.id ?? usuario);
             } else if ( res.status === 453){
               setError('Usuario o contraseña incorrecta');
               setCargando(false);
@@ -37,6 +38,14 @@ function Inicio ({alAcceder, irRegistro, googleLogin}){
             return;
         }
         alAcceder(usuario.trim());
+    };
+
+    const hacerLoginGoogle = () => {
+        if (!usuario.trim()) {  // trim elimina espacios
+            setError('Usuario vacios');
+            return;
+        }
+        googleLogin();
     };
 
     return(
@@ -63,27 +72,14 @@ function Inicio ({alAcceder, irRegistro, googleLogin}){
               placeholder="Usuario"
               value={usuario}
               onChange={texto => setUsuario(texto.target.value)}
-              style={{padding: '15px 40px',
-                background: '#111',
-                border: '2px solid #555',
-                color: 'white',
-                fontSize: '15px',
-                outline: 'none'
-            }}/>
+              style={inputStylee}/>
 
             <input
               type="password"
               placeholder="Contraseña"
               value={contrasena}
               onChange={texto => setContrasena(texto.target.value)}
-              style={{padding: '15px 40px',
-                background: '#111',
-                border: '2px solid #555',
-                color: 'white',
-                fontSize: '15px',
-                outline: 'none',
-                marginBottom: '20px'
-            }}/>
+              style={inputStylee}/>
 
             <button
               onClick={hacerLogin}
@@ -94,13 +90,14 @@ function Inicio ({alAcceder, irRegistro, googleLogin}){
             </button>
 
             <button
-              onClick={googleLogin}
+              onClick={hacerLoginGoogle}
               style={botomStyle}>
+              <img src={logoGoogle} width="25" style={{ marginRight: '10px',verticalAlign: 'middle'}}/>
 
               Continua con Google
             </button>
 
-            <span onClick={irRegistro} style={{color: 'white', cursor: 'pointer', transition: 'all 0.3s'}}>
+            <span onClick={irRegistro} style={{color: 'white', cursor: 'pointer', transition: 'all 0.5s'}}>
               ¿No tienes cuenta? Regístrate
             </span>
 
@@ -108,8 +105,16 @@ function Inicio ({alAcceder, irRegistro, googleLogin}){
         </div>
     );
 }
+const inputStylee={padding: '15px 40px',
+      background: '#111',
+      border: '2px solid #555',
+      color: 'white',
+      fontSize: '15px',
+      outline: 'none'
+}
+
 const botomStyle = {  padding: '15px 40px',
-  fontSize: '20px',
+  fontSize: '15px',
   fontWeight: 'bold',
   background: '#ffffff',
   color: '#080808',
