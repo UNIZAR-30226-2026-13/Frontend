@@ -63,6 +63,26 @@ const generarTableroIA = () => {
   return nuevoTablero;
 };
 
+const obtenerCeldasBarcoCompleto = (tablero, f, c) => {
+  const celdas = [[f, c]];
+  const direcciones = [[0, 1], [0, -1], [1, 0], [-1, 0]];
+
+  direcciones.forEach(([df, dc]) => {
+    let nf = f + df;
+    let nc = c + dc;
+    
+    while (
+      nf >= 0 && nf < TAM && nc >= 0 && nc < TAM && 
+      (tablero[nf][nc] === ESTADOS_CASILLAS.BARCO || tablero[nf][nc] === ESTADOS_CASILLAS.TOCADO)
+    ) {
+      celdas.push([nf, nc]);
+      nf += df;
+      nc += dc;
+    }
+  });
+  return celdas;
+};
+
 function modoIA({alSalir}) {
   const [mios, Mios] = useState(generarTabVacio());
   const [enemigos, Enemigos] = useState(generarTabVacio());
@@ -125,6 +145,15 @@ function modoIA({alSalir}) {
       const aciertoBarco = nuevoEnemigos[df][dc] === ESTADOS_CASILLAS.BARCO;
       nuevoEnemigos[df][dc] = aciertoBarco ? ESTADOS_CASILLAS.TOCADO : ESTADOS_CASILLAS.AGUA;
       if (aciertoBarco) aciertoGlobalBarco = true; // Poner acierto a true si el powerup impacta
+
+      const celdasDelBarco = obtenerCeldasBarcoCompleto(nuevoEnemigos, f, c);
+      const estaHundido = celdasDelBarco.every(([bf, bc]) => nuevoEnemigos[bf][bc] === ESTADOS_CASILLAS.TOCADO);
+      
+      if (estaHundido) {
+        celdasDelBarco.forEach(([bf, bc]) => {
+          nuevoEnemigos[bf][bc] = ESTADOS_CASILLAS.HUNDIDO;
+        });
+      }
 
       const powerUpEncontrado = copiaPUEnemigos[df][dc];
       // Recolectar Powerup si encontrado

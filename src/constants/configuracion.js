@@ -86,5 +86,5 @@ export const RUSH_CONFIG = {
 
 //CASILLAS
 export const ESTADOS_CASILLAS = {
-    VACIO: 0, BARCO: 1, TOCADO: 2, AGUA: 3, MINA: 4, ESCUDO: 5
+    VACIO: 0, BARCO: 1, TOCADO: 2, AGUA: 3, MINA: 4, ESCUDO: 5, HUNDIDO: 6
 };
