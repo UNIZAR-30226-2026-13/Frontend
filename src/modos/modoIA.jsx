@@ -2,33 +2,13 @@ import { useState, useEffect } from 'react';
 import Tablero from '../components/tablero';
 import Barcos from '../components/barcos';
 import { BARCOS, TABLEROS, ESTADOS_CASILLAS, POWER_UPS } from '../constants/configuracion'; 
-import PowerUps from '../components/inventario';
+import Inventario from '../components/inventario';
+import { generarTabPowerUps, obtenerCeldasImpacto, procesarInventario } from '../components/powerups';
 
 const TAM = TABLEROS.ESTANDAR_TAM;
 
-const generarTabVacio = () => {
+export const generarTabVacio = () => {
   return Array(TAM).fill(null).map(() => Array(TAM).fill(ESTADOS_CASILLAS.VACIO));
-};
-
-//Crear mapa con power-ups
-const generarTabPowerUps = () => {
-  let mapa = generarTabVacio(); // Crea matriz vacía
-  const keys = Object.keys(POWER_UPS);
-  
-  // Ponemos, por ejemplo, 5 power-ups aleatorios
-  for (let i = 0; i < 5; i++) {
-    let colocado = false;
-    while (!colocado) {
-      const f = Math.floor(Math.random() * TAM);
-      const c = Math.floor(Math.random() * TAM);
-      if (mapa[f][c] === ESTADOS_CASILLAS.VACIO) {
-        const itemAleatorio = POWER_UPS[keys[Math.floor(Math.random() * keys.length)]];
-        mapa[f][c] = itemAleatorio.id; // Guardamos el ID del power-up
-        colocado = true;
-      }
-    }
-  }
-  return mapa;
 };
 
 const generarTableroIA = () => {
@@ -83,7 +63,7 @@ const obtenerCeldasBarcoCompleto = (tablero, f, c) => {
   return celdas;
 };
 
-function modoIA({alSalir}) {
+function ModoIA({alSalir}) {
   const [mios, Mios] = useState(generarTabVacio());
   const [enemigos, Enemigos] = useState(generarTabVacio());
   const [turnoMio, TurnoMio] = useState(true);
@@ -132,8 +112,8 @@ function modoIA({alSalir}) {
     const nuevoEnemigos = enemigos.map(fila => [...fila]);
     const copiaPUEnemigos = powerUpsEnemigos.map(fila => [...fila]);
     let aciertoGlobalBarco = false;
-    let inventarioActualizado = [...inventarioMio]; // Copia local del inventario
-  
+    const idsEncontrados = [];
+
     const celdasAfectadas = obtenerCeldasImpacto(f, c, 
       powerUpSeleccionado?.id === 'deflagrador' ? 'deflagrador' : 'normal'
     );
@@ -144,63 +124,38 @@ function modoIA({alSalir}) {
 
       const aciertoBarco = nuevoEnemigos[df][dc] === ESTADOS_CASILLAS.BARCO;
       nuevoEnemigos[df][dc] = aciertoBarco ? ESTADOS_CASILLAS.TOCADO : ESTADOS_CASILLAS.AGUA;
-      if (aciertoBarco) aciertoGlobalBarco = true; // Poner acierto a true si el powerup impacta
+      if (aciertoBarco) {
+          aciertoGlobalBarco = true; // Poner acierto a true si el powerup impacta
 
-      const celdasDelBarco = obtenerCeldasBarcoCompleto(nuevoEnemigos, f, c);
-      const estaHundido = celdasDelBarco.every(([bf, bc]) => nuevoEnemigos[bf][bc] === ESTADOS_CASILLAS.TOCADO);
-      
-      if (estaHundido) {
-        celdasDelBarco.forEach(([bf, bc]) => {
-          nuevoEnemigos[bf][bc] = ESTADOS_CASILLAS.HUNDIDO;
-        });
+        const celdasDelBarco = obtenerCeldasBarcoCompleto(nuevoEnemigos, f, c);
+        const estaHundido = celdasDelBarco.every(([bf, bc]) => nuevoEnemigos[bf][bc] === ESTADOS_CASILLAS.TOCADO);
+        
+        if (estaHundido) {
+          celdasDelBarco.forEach(([bf, bc]) => {
+            nuevoEnemigos[bf][bc] = ESTADOS_CASILLAS.HUNDIDO;
+          });
+        }
       }
 
-      const powerUpEncontrado = copiaPUEnemigos[df][dc];
-      // Recolectar Powerup si encontrado
-      if (powerUpEncontrado) {
-        const powerUpCompleto = Object.values(POWER_UPS).find(p => p.id === powerUpEncontrado)
-        if (powerUpCompleto) {
-          inventarioActualizado.push(powerUpCompleto);
-        }
-        copiaPUEnemigos[df][dc] = null; // Lo quitamos del tablero
+      const idEncontrado = copiaPUEnemigos[df][dc];
+      if (idEncontrado) {
+        idsEncontrados.push(idEncontrado); 
+        copiaPUEnemigos[df][dc] = null; 
       }
     });
 
-    if (powerUpSeleccionado) {
-      const pSid = powerUpSeleccionado.id;
-      if (pSid === 'doble') {
-        aciertoGlobalBarco = true; 
-      }
-      const indice = inventarioActualizado.findIndex(p => p?.id === pSid);
-      if (indice !== -1) {
-        inventarioActualizado.splice(indice, 1);
-      }
-      setPowerUpSeleccionado(null);
+    const inventarioActualizado = procesarInventario(inventarioMio, powerUpSeleccionado, idsEncontrados);
+
+    if (powerUpSeleccionado?.id === 'doble') {
+      aciertoGlobalBarco = true; 
     }
 
+    setPowerUpSeleccionado(null);
     Enemigos(nuevoEnemigos);
     setPUEnemigos(copiaPUEnemigos);
     setInventarioMio(inventarioActualizado);
 
     if (!aciertoGlobalBarco) TurnoMio(false);
-  };
-
-  const obtenerCeldasImpacto = (f, c, tipo) => {
-    const celdas = [[f, c]]; // Por defecto
-
-    if (tipo === 'deflagrador') {
-      const adyacentes = [
-        [f - 1, c], [f + 1, c], 
-        [f, c - 1], [f, c + 1]
-      ];
-      
-      adyacentes.forEach(([af, ac]) => {
-        if (af >= 0 && af < TAM && ac >= 0 && ac < TAM) {
-          celdas.push([af, ac]);
-        }
-      });
-    }
-    return celdas;
   };
 
   const manejarHover = (f, c) => {
@@ -264,7 +219,7 @@ function modoIA({alSalir}) {
     }
     setInventarioMio(nuevosPUsGanados);
     setPUMios(powerupsMios);
-  };
+};
 
   const empezarBatalla = () => {
     const tableroEnemigoConBarcos = generarTableroIA();
@@ -359,7 +314,7 @@ function modoIA({alSalir}) {
             }}>
               <h4 style={{ margin: '0 0 10px 0', color: '#3b82f6' }}>OCÉANO ENEMIGO</h4>
               <Tablero cuadricula={enemigos} alDisparar={disparar} esIA={true} powerUpSeleccionado={powerUpSeleccionado}/>
-              <PowerUps 
+              <Inventario 
                 inventarioMio={inventarioMio}
                 powerUpSeleccionado={powerUpSeleccionado}
                 alSeleccionar={setPowerUpSeleccionado}
@@ -388,4 +343,4 @@ function modoIA({alSalir}) {
   );
 }
 
-export default modoIA;
+export default ModoIA;
