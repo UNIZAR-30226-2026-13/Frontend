@@ -4,14 +4,17 @@ import JuegoIA from './modos/modoIA';
 import JuegoLocal from './modos/modo1vs1';
 import Inicio from './components/Inicio';
 import Registro from './components/Registro';
+import Perfil from './components/Perfil';
 import { useGoogleLogin } from '@react-oauth/google';
 
 
 function App() {
   const [modo, setModo] = useState('INICIO'); 
+  const [usuario, setUsuario] = useState(null);
   //const [IDjugador, setIDjugador] = useState(null); para cuando backedn
   
   const login = (id) => {
+    setUsuario(id);
     //setIDjugador(id); para cuando backend
     setModo('MENU');
   }
@@ -40,6 +43,8 @@ function App() {
                             )}
       
       {modo === 'REGISTRO' && (<Registro alVolverInicio={() => setModo('INICIO')}/>)}
+      
+      {modo === 'PERFIL' && (<Perfil alSalir={() => setModo('MENU')} usuario={usuario}/>)}
 
     </div>
   );
