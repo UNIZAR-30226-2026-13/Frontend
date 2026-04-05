@@ -55,21 +55,41 @@ function Menu({ alElegir, usuario }) {
       </div>
 
 
-      <h1 style={{ fontSize: '50px', color: '#ffffff', marginBottom: '40px' }}>HUNDE LA FLOTA</h1>
-      {/* Botones de los modos */}
-      <button 
-        onClick={() => alElegir('IA')} 
-        style={botonStyle}
-      >
-        JUGAR VS IA
-      </button>
+      <h1 style={{ fontSize: '50px', color: '#ffffff', marginBottom: '60px' }}>HUNDE LA FLOTA</h1>
+      <div style={{
+        display: 'grid',    // un div para que aparezcan de dos en dos
+        gridTemplateColumns: '300px 300px',
+        gap: '50px'
+      }}>
+        {/* Botones de los modos */}
+        <button 
+          onClick={() => alElegir('IA')} 
+          style={botonStyle}
+        >
+          JUGAR VS IA
+        </button>
 
-      <button 
-        onClick={() => alElegir('1VS1')} 
-        style={botonStyle}
-      >
-        1 VS 1
-      </button>
+        <button 
+          onClick={() => alElegir('1VS1')} 
+          style={botonStyle}
+        >
+          1 VS 1
+        </button>
+
+        <button 
+          onClick={() => alElegir('PRIVADA')} 
+          style={botonStyle}
+        >
+          Partida privada
+        </button>
+
+        <button 
+          //onClick={() => alElegir('1VS1')} 
+          style={botonStyle}
+        >
+          Rush!
+        </button>
+      </div>
     </div>
   );
 }
