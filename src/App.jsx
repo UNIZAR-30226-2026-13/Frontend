@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import Menu from './components/menu';
-import JuegoIA from './modos/ModoIA';
-import JuegoLocal from './modos/Modo1vs1';
+import JuegoIA from './modos/modoIA';
+import JuegoLocal from './modos/modo1vs1';
 import Inicio from './components/Inicio';
 import Registro from './components/Registro';
 import Perfil from './components/Perfil';
