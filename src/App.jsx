@@ -7,12 +7,15 @@ import Registro from './components/Registro';
 import Perfil from './components/Perfil';
 import { useGoogleLogin } from '@react-oauth/google';
 import CrearPrivada from './components/CrearPrivada';
+import JuegoPrivada from './modos/modoPrivada';
 
 
 function App() {
   const [modo, setModo] = useState('INICIO'); 
   const [usuario, setUsuario] = useState(null);
   //const [IDjugador, setIDjugador] = useState(null); para cuando backedn
+
+  const [configPrivada, setConfigPrivada] = useState(null);
   
   const login = (id) => {
     setUsuario(id);
@@ -24,6 +27,11 @@ function App() {
     onSuccess: (respuesta) => login(respuesta.access_token),
     onError: () => alert('Error con Google')
   });
+
+  const empezarPartidaPrivada = (configuracion) => {
+    setConfigPrivada(configuracion); 
+    setModo('JUGAR_PRIVADA'); 
+  };
 
   return (
     <div style={{ height: '100vh',
@@ -47,7 +55,11 @@ function App() {
       
       {modo === 'PERFIL' && (<Perfil alSalir={() => setModo('MENU')} usuario={usuario}/>)}
 
-      {modo  === 'PRIVADA' && (<CrearPrivada alSalir={() => setModo('MENU')}/>)}
+      {modo  === 'PRIVADA' && (<CrearPrivada alSalir={() => setModo('MENU')}
+                                              alEmpezar={empezarPartidaPrivada}/>)}
+
+      {modo === 'JUGAR_PRIVADA' && (<JuegoPrivada alSalir={() => setModo('MENU')} 
+                                              configuracion={configPrivada} />)}
     </div>
   );
 }
