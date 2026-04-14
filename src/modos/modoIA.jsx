@@ -3,7 +3,7 @@ import Tablero from '../components/tablero';
 import Barcos from '../components/barcos';
 import { BARCOS, TABLEROS, ESTADOS_CASILLAS, POWER_UPS } from '../constants/configuracion'; 
 import Inventario from '../components/inventario';
-import { generarTabPowerUps, obtenerCeldasImpacto, procesarInventario } from '../components/powerups';
+import { generarTabPowerUps, obtenerCeldasImpacto, procesarInventario, obtenerHoverPowerUp, obtenerHoverTornado } from '../components/powerups';
 
 const TAM = TABLEROS.ESTANDAR_TAM;
 
@@ -114,9 +114,7 @@ function ModoIA({alSalir}) {
     let aciertoGlobalBarco = false;
     const idsEncontrados = [];
 
-    const celdasAfectadas = obtenerCeldasImpacto(f, c, 
-      powerUpSeleccionado?.id === 'deflagrador' ? 'deflagrador' : 'normal'
-    );
+    const celdasAfectadas = obtenerCeldasImpacto(f, c, powerUpSeleccionado?.id);
 
     celdasAfectadas.forEach(([df, dc]) => { // No hacemos nada si la celda está tocada o es agua
       if (nuevoEnemigos[df][dc] === ESTADOS_CASILLAS.TOCADO || 
@@ -125,7 +123,7 @@ function ModoIA({alSalir}) {
       const aciertoBarco = nuevoEnemigos[df][dc] === ESTADOS_CASILLAS.BARCO;
       nuevoEnemigos[df][dc] = aciertoBarco ? ESTADOS_CASILLAS.TOCADO : ESTADOS_CASILLAS.AGUA;
       if (aciertoBarco) {
-          aciertoGlobalBarco = true; // Poner acierto a true si el powerup impacta
+          aciertoGlobalBarco = true; // Poner acierto a true si el disparo impacta
 
         const celdasDelBarco = obtenerCeldasBarcoCompleto(nuevoEnemigos, f, c);
         const estaHundido = celdasDelBarco.every(([bf, bc]) => nuevoEnemigos[bf][bc] === ESTADOS_CASILLAS.TOCADO);
@@ -159,19 +157,33 @@ function ModoIA({alSalir}) {
   };
 
   const manejarHover = (f, c) => {
-    if (fase !== 'COLOCANDO' || !barcoSeleccionado) {
-      setCeldasSombra([]);
-      return;
+    let nuevasCeldas = [];
+    if (fase === 'COLOCANDO') {
+      if (barcoSeleccionado) {
+        for (let i = 0; i < barcoSeleccionado.tam; i++) {
+          const filaD = orientacion === 'V' ? f + i : f;
+          const colD = orientacion === 'H' ? c + i : c;
+          if (filaD < TAM && colD < TAM) {
+            nuevasCeldas.push(`${filaD}-${colD}`);
+          } 
+        }
+      }
     }
-    const nuevasCeldas = [];
-    for (let i = 0; i < barcoSeleccionado.tam; i++) {
-      const filaD = orientacion === 'V' ? f + i : f;
-      const colD = orientacion === 'H' ? c + i : c;
-      if (filaD < TAM && colD < TAM) {
-        nuevasCeldas.push(`${filaD}-${colD}`);
+    else if (fase === 'JUGANDO') {
+      if (turnoMio) {
+        if (powerUpSeleccionado?.id === 'tor') {
+        nuevasCeldas = [...obtenerHoverTornado(f, c, TAM)];
+      }
+        else if (powerUpSeleccionado) {
+          nuevasCeldas = [...obtenerHoverPowerUp(f, c, powerUpSeleccionado)];
+        }
+        else {
+          nuevasCeldas = [`${f}-${c}`] // Solo la misma celda
+        }
       }
     }
     setCeldasSombra(nuevasCeldas);
+    return
   };
 
   const colocarBarco = (f, c) => {
@@ -300,7 +312,7 @@ function ModoIA({alSalir}) {
                 cuadricula={mios} 
                 alDisparar={colocarBarco} 
                 esIA={false} 
-                celdasSombra={celdasSombra}
+                celdasSombra={fase === 'COLOCANDO' ? celdasSombra : []}
                 alEntrarCelda={manejarHover}
                 alSalirTablero={() => setCeldasSombra([])}
             />
@@ -313,7 +325,13 @@ function ModoIA({alSalir}) {
               borderRadius: '8px', textAlign: 'center'
             }}>
               <h4 style={{ margin: '0 0 10px 0', color: '#3b82f6' }}>OCÉANO ENEMIGO</h4>
-              <Tablero cuadricula={enemigos} alDisparar={disparar} esIA={true} powerUpSeleccionado={powerUpSeleccionado}/>
+              <Tablero
+                cuadricula={enemigos}
+                alDisparar={disparar}
+                esIA={true}
+                celdasSombra={fase === 'JUGANDO' ? celdasSombra : []}
+                alEntrarCelda={manejarHover}
+                alSalirTablero={() => setCeldasSombra([])}/>
               <Inventario 
                 inventarioMio={inventarioMio}
                 powerUpSeleccionado={powerUpSeleccionado}

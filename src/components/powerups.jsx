@@ -23,6 +23,12 @@ export const generarTabPowerUps = () => {
   return mapa;
 };
 
+export const obtenerHoverPowerUp = (f, c, powerUpSeleccionado) => {
+  const celdasCoordenadas = obtenerCeldasImpacto( f, c, powerUpSeleccionado?.id);
+  return celdasCoordenadas.map(([rf, rc]) => `${rf}-${rc}`);
+};
+
+
 export const obtenerCeldasImpacto = (f, c, tipo) => {
   const celdas = [[f, c]]; // Por defecto
 
@@ -31,14 +37,48 @@ export const obtenerCeldasImpacto = (f, c, tipo) => {
       [f - 1, c], [f + 1, c], 
       [f, c - 1], [f, c + 1]
     ];
-    
     adyacentes.forEach(([af, ac]) => {
       if (af >= 0 && af < TAM && ac >= 0 && ac < TAM) {
         celdas.push([af, ac]);
       }
     });
+    return celdas;
+  }
+
+  if (tipo === 'tor') {
+      const { filaInicio, filaFin, colInicio, colFin } = obtenerLimitesCuadrante(f, c, TAM);
+      const todasLasCeldas = [];
+      
+      for (let i = filaInicio; i < filaFin; i++) {
+        for (let j = colInicio; j < colFin; j++) {
+          todasLasCeldas.push([i, j]);
+        }
+      }
+      // Afecta a 4 casillas aleatorias del cuadrante
+      return todasLasCeldas.sort(() => Math.random() - 0.5).slice(0, 4);
+  }
+  return [[f, c]];
+};
+
+export const obtenerHoverTornado = (f, c, TAM) => {
+  const { filaInicio, filaFin, colInicio, colFin } = obtenerLimitesCuadrante(f, c, TAM);
+  const celdas = [];
+  for (let i = filaInicio; i < filaFin; i++) {
+    for (let j = colInicio; j < colFin; j++) {
+      celdas.push(`${i}-${j}`);
+    }
   }
   return celdas;
+};
+
+// Determina los límites del cuadrante según la posición (f, c) para torpedo
+const obtenerLimitesCuadrante = (f, c, TAM) => {
+  const mitad = Math.floor(TAM / 2);
+  const filaInicio = f < mitad ? 0 : mitad;
+  const filaFin = f < mitad ? mitad : TAM;
+  const colInicio = c < mitad ? 0 : mitad;
+  const colFin = c < mitad ? mitad : TAM;
+  return { filaInicio, filaFin, colInicio, colFin };
 };
 
 export const procesarInventario = (inventarioActual, powerUpUsado, powerUpsEncontrados) => {
