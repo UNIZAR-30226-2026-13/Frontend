@@ -10,6 +10,8 @@ function Celda({ valor, alClickar, esIA, estaEnSombra, alEntrar }) {
       case ESTADOS_CASILLAS.HUNDIDO: return "#b91c1c"; 
       case ESTADOS_CASILLAS.AGUA: return "#3b82f6"; 
       case ESTADOS_CASILLAS.BARCO: return !esIA ? "#4b5563" : "#100b0b";
+      case ESTADOS_CASILLAS.ESCUDO: return "#0fb7ea"
+      
 
       default: return "#100b0b";
   } 
@@ -46,7 +48,13 @@ function Celda({ valor, alClickar, esIA, estaEnSombra, alEntrar }) {
         }}>✕</div>
       )}
 
+      {valor === ESTADOS_CASILLAS.ESCUDO && (
+        <div style={{ fontSize: '22px' }}>🛡️</div>
+      )}
       
+      {!esIA && valor === ESTADOS_CASILLAS.MINA && (
+        <div style={{ fontSize: '18px' }}>💣</div>
+      )}
     </div>
   );
 }

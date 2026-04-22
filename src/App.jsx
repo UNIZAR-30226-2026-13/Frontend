@@ -16,6 +16,16 @@ function App() {
   //const [IDjugador, setIDjugador] = useState(null); para cuando backedn
 
   const [configPrivada, setConfigPrivada] = useState(null);
+  // para resetear partida IA
+  const [idPartida, setidPartida] = useState(0);
+
+  const manejarModo = (nuevoModo) => {
+    if (nuevoModo === 'IA') {
+      setidPartida(prev => prev + 1); // Suma 1 a la Key, forzando a React a reiniciar todo
+    }
+    setModo(nuevoModo);
+  };
+
   
   const login = (id) => {
     setUsuario(id);
@@ -40,9 +50,9 @@ function App() {
                   margin: 0,
                   padding: 0}}>
       
-      {modo === 'MENU' && (<Menu alElegir={setModo} />)}
+      {modo === 'MENU' && (<Menu alElegir={manejarModo} />)}
 
-      {modo === 'IA' && (<JuegoIA alSalir={() => setModo('MENU')} />)}
+      {modo === 'IA' && (<JuegoIA key={idPartida} alSalir={() => setModo('MENU')} alElegir={manejarModo}/>)}
 
       {modo === '1VS1' && (<JuegoLocal alSalir={() => setModo('MENU')} />)}
 

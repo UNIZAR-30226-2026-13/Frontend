@@ -44,41 +44,7 @@ export const obtenerCeldasImpacto = (f, c, tipo) => {
     });
     return celdas;
   }
-
-  if (tipo === 'tor') {
-      const { filaInicio, filaFin, colInicio, colFin } = obtenerLimitesCuadrante(f, c, TAM);
-      const todasLasCeldas = [];
-      
-      for (let i = filaInicio; i < filaFin; i++) {
-        for (let j = colInicio; j < colFin; j++) {
-          todasLasCeldas.push([i, j]);
-        }
-      }
-      // Afecta a 4 casillas aleatorias del cuadrante
-      return todasLasCeldas.sort(() => Math.random() - 0.5).slice(0, 4);
-  }
-  return [[f, c]];
-};
-
-export const obtenerHoverTornado = (f, c, TAM) => {
-  const { filaInicio, filaFin, colInicio, colFin } = obtenerLimitesCuadrante(f, c, TAM);
-  const celdas = [];
-  for (let i = filaInicio; i < filaFin; i++) {
-    for (let j = colInicio; j < colFin; j++) {
-      celdas.push(`${i}-${j}`);
-    }
-  }
   return celdas;
-};
-
-// Determina los límites del cuadrante según la posición (f, c) para torpedo
-const obtenerLimitesCuadrante = (f, c, TAM) => {
-  const mitad = Math.floor(TAM / 2);
-  const filaInicio = f < mitad ? 0 : mitad;
-  const filaFin = f < mitad ? mitad : TAM;
-  const colInicio = c < mitad ? 0 : mitad;
-  const colFin = c < mitad ? mitad : TAM;
-  return { filaInicio, filaFin, colInicio, colFin };
 };
 
 export const procesarInventario = (inventarioActual, powerUpUsado, powerUpsEncontrados) => {
@@ -98,5 +64,67 @@ export const procesarInventario = (inventarioActual, powerUpUsado, powerUpsEncon
 
   return nuevoInventario;
 };
+
+/* Radar: Revela cuantos barcos hay en el cuadrate de la celda elegida */
+
+export const usarRadar = (f,c,tableroEnemigo) => {
+  const mitad = Math.floor(TAM/2);
+  const filaMin = f < mitad ? 0 : mitad;
+  const filaMax = f < mitad ? mitad : TAM;
+  const colMin = c < mitad ? 0 : mitad;
+  const colMax = c < mitad ? mitad : TAM;
+
+  let barcosRestantes = 0;
+  for (let i = filaMin; i < filaMax; i++){
+    for (let j = colMin; j < colMax; j++){
+      if (tableroEnemigo[i][j] == ESTADOS_CASILLAS.BARCO){
+        barcosRestantes++;
+      }
+    }
+  }
+
+  const cuadrante = (f < mitad ? 0 : 2) + (c < mitad ? 0 : 1);
+
+  return { cuadrante, barcosRestantes, filaMin, filaMax, colMin, colMax};
+};
+
+/* Escudo: Aplica un escudo a una celda de tu tablero */
+export const aplicarEscudo = (f,c, tableroMio) => {
+  const celda = tableroMio[f][c];
+  if (celda !== ESTADOS_CASILLAS.BARCO) return null;
+
+  const nuevoTablero = tableroMio.map(fila => [...fila]);
+  nuevoTablero[f][c] = ESTADOS_CASILLAS.ESCUDO;
+  return nuevoTablero;
+};
+
+/*Tornado: dispara a 5 celdas random del cuadrante al cual pertenece esa celda */
+export const usarTornado = (f, c, tableroEnemigo, powerUpsEnemigos) => {
+  const mitad = Math.floor(TAM / 2);
+  const filaMin = f < mitad ? 0 : mitad;
+  const filaMax = f < mitad ? mitad : TAM;
+  const colMin = c < mitad ? 0 : mitad;
+  const colMax = c < mitad ? mitad : TAM;
+
+  // Recogemos celdas válidas del cuadrante
+  const celdasDisponibles = [];
+  for (let i = filaMin; i < filaMax; i++) {
+    for (let j = colMin; j < colMax; j++) {
+      if (
+        tableroEnemigo[i][j] !== ESTADOS_CASILLAS.TOCADO &&
+        tableroEnemigo[i][j] !== ESTADOS_CASILLAS.AGUA &&
+        tableroEnemigo[i][j] !== ESTADOS_CASILLAS.HUNDIDO
+      ) {
+        celdasDisponibles.push([i, j]);
+      }
+    }
+  }
+
+  const rand = celdasDisponibles.sort(() => Math.random() - 0.5);
+  const celdasImpacto = rand.slice(0, 5);
+
+  return celdasImpacto;
+};
+
 
 // export default PowerUps;
