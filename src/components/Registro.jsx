@@ -8,46 +8,38 @@ function Registro({alVolverInicio}){
   const [confirmarContrasena, setConfirmarContrasena] = useState(''); 
   const [error, setError] = useState('');
   const [cargando, setCargando] = useState(false); // backend
+  const [email, setEmail] = useState('')
 
-
-  // corregir cuando backend
-    /*const hacerLogin = async () => {
-        setError('');
-        setCargando(true);
-        try {
-            const res = await fetch('/api/usuario/login',{
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({user: usuario, contrasena}),
-            });
-            if (res.status === 200){
-              const data = await res.json();
-              setCargando(false);
-              alAcceder(data.id ?? usuario);
-            } else if ( res.status === 453){
-              setError('Usuario o contraseña incorrecta');
-              setCargando(false);
-            } else{
-              setError('Error del servidor');
-              setCargando(false);
-            }
-        } catch{
-          setError('Error')
-          setCargando(false);
+    const registrarse = async () => {
+      if (!usuario.trim() || !contrasena.trim() || !confirmarContrasena.trim() || !email.trim()) {
+        setError('Rellena todos los campos');
+        return;
+      }
+      if (contrasena !== confirmarContrasena) {
+        setError('Las contraseñas no coinciden');
+        return;
+      }
+      setCargando(true);
+      setError('');
+      try {
+        const res = await fetch('/api/usuario/registro', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: usuario, email: email, password: contrasena }),
+        });
+        if (res.status === 200) {
+          alVolverInicio();
+        } else if (res.status === 453) {
+          setError('El usuario o email ya están en uso');
+        } else {
+          setError('Error del servidor');
         }
-    };*/
-
-    const registrarse = () => {
-        if (!usuario.trim() || !contrasena.trim() || !confirmarContrasena.trim()) {  // trim elimina espacios
-          setError('Usuario y contraeña y confiramr contraseña vacios');
-          return;
-        }
-        if (contrasena !== confirmarContrasena){
-          setError('No coinciden las cotrseñass');
-          return;
-        }
-        alVolverInicio();
-    };
+      } catch {
+        setError('Error de red');
+      } finally {
+        setCargando(false);
+      }
+  };
 
     return(
         <div style={{
@@ -73,6 +65,13 @@ function Registro({alVolverInicio}){
               placeholder="Usuario"
               value={usuario}
               onChange={texto => setUsuario(texto.target.value)}
+              style={inputStylee}/>
+
+            <input
+              type="email"
+              placeholder="Correo electrónico"
+              value={email}
+              onChange={texto => setEmail(texto.target.value)}
               style={inputStylee}/>
 
             <input

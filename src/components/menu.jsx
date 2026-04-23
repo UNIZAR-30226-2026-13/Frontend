@@ -49,8 +49,8 @@ function Menu({ alElegir, usuario }) {
           /> {/*foto aqui*/}       
         </div>
         <div style={{ display: 'flex', flexDirection: 'column' }}>
-          <span style={{ fontWeight: 'bold', fontSize: '15px' }}>{/*usuario*/ 'Jugador'}</span>
-          <span style={{ fontSize: '12px', color: '#ffffff' }}>ELO: 1000</span>
+          <span style={{ fontWeight: 'bold', fontSize: '15px' }}>{usuario?.username || 'Jugador'}</span>
+          <span style={{ fontSize: '12px', color: '#ffffff' }}>ELO: {usuario?.elo ?? 0}</span>
         </div>
       </div>
 

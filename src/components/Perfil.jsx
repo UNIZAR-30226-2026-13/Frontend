@@ -1,7 +1,7 @@
-import { useState } from "react"
+import { useState, useEffect } from "react" 
 import IconoDefault from '../assets/IconoDefault.png'
 function Perfil({ alSalir, usuario }){
-    const[pantalla, setPantalla] = useState('PERFIL');
+    const [pantalla, setPantalla] = useState('PERFIL');
 
     return(
         <div style={{
@@ -48,7 +48,7 @@ function Perfil({ alSalir, usuario }){
                   style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
                />
               </div>
-              <span style={{ fontWeight: 'bold', fontSize: '14px' }}>{usuario || 'Jugador'}</span>
+              <span style={{ fontWeight: 'bold', fontSize: '14px' }}>{usuario?.username || 'Jugador'}</span>
             </div>
 
             {['PERFIL', 'AJUSTES'].map(pant => (        // array de pantallas
@@ -155,7 +155,7 @@ function PantallaPerfil({ usuario }) {
               borderRadius: '10px', 
               fontSize: '16px'
             }}>
-              {usuario || 'Jugador'}
+              {usuario?.username || 'Jugador'}
             </div>
             <p style={{ margin: '8px', color: '#555', fontSize: '12px', cursor: 'pointer' }}>
               Cambiar nombre de usuario {/* API */}
@@ -172,7 +172,7 @@ function PantallaPerfil({ usuario }) {
               fontSize: '16px', 
               color: '#555'
             }}>
-              {/* API */}
+              {usuario?.email || '—'} 
             </div>
           </div>
  
@@ -186,7 +186,7 @@ function PantallaPerfil({ usuario }) {
               fontSize: '16px', 
               color: '#555'
             }}>
-              1000 {/* API */}
+              {usuario?.elo ?? 0}
             </div>
           </div>
         </div>

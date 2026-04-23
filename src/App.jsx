@@ -27,11 +27,13 @@ function App() {
   };
 
   
-  const login = (id) => {
-    setUsuario(id);
+  const login = (datoUsuario) => {
+    setUsuario(datoUsuario);
     //setIDjugador(id); para cuando backend
     setModo('MENU');
   }
+
+
   
   const googleLoginApp = useGoogleLogin({
     onSuccess: (respuesta) => login(respuesta.access_token),
@@ -50,7 +52,7 @@ function App() {
                   margin: 0,
                   padding: 0}}>
       
-      {modo === 'MENU' && (<Menu alElegir={manejarModo} />)}
+      {modo === 'MENU' && (<Menu alElegir={manejarModo} usuario={usuario}/>)}
 
       {modo === 'IA' && (<JuegoIA key={idPartida} alSalir={() => setModo('MENU')} alElegir={manejarModo}/>)}
 

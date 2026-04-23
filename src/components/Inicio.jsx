@@ -7,38 +7,37 @@ function Inicio ({alAcceder, irRegistro, googleLogin}){
     const [cargando, setCargando] = useState(false); // backend
     const [error, setError] = useState('');
 
-    /*const hacerLogin = async () => {
+    const hacerLogin = async () => {
         setError('');
         setCargando(true);
         try {
             const res = await fetch('/api/usuario/login',{
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({user: usuario, contrasena}),
+              body: JSON.stringify({username: usuario, password: contrasena}),
             });
             if (res.status === 200){
-              const data = await res.json();
-              setCargando(false);
-              alAcceder(data.id ?? usuario);
+              const usuario = await res.json();
+              alAcceder(usuario);
             } else if ( res.status === 453){
               setError('Usuario o contraseña incorrecta');
-              setCargando(false);
             } else{
               setError('Error del servidor');
-              setCargando(false);
             }
         } catch{
           setError('Error')
           setCargando(false);
+        } finally {
+          setCargando(false)
         }
-    };*/
-    const hacerLogin = () => {
+    };
+    /*const hacerLogin = () => {
         if (!usuario.trim() || !contrasena.trim()) {  // trim elimina espacios
             setError('Usuario y contraeña vacios');
             return;
         }
         alAcceder(usuario.trim());
-    };
+    };*/
 
     const hacerLoginGoogle = () => {
         if (!usuario.trim()) {  // trim elimina espacios
