@@ -23,7 +23,7 @@ export const BARCOS = {
 export const POWER_UPS = {
     TORPEDO_DEFLAGRADOR: {
         id: 'deflagrador', 
-        nombre: 'TORPEDO DEFLAGRADOR',
+        nombre: 'TORPEDO BOMBA',
         descripcion: 'Golpea la casilla seleccionada y las cuatro casillas adyacentes (en forma de cruz).',
         efecto: 'AREA',
         rango: 1,

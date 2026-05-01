@@ -7,7 +7,7 @@ import { generarTabPowerUps, obtenerCeldasImpacto, procesarInventario, usarRadar
 
 const TAM = TABLEROS.ESTANDAR_TAM;
 
-export const generarTabVacio = () => {
+const generarTabVacio = () => {
   return Array(TAM).fill(null).map(() => Array(TAM).fill(ESTADOS_CASILLAS.VACIO));
 };
 
@@ -450,7 +450,7 @@ function ModoIA({alSalir, alElegir}) {
             opacity: fase === 'JUGANDO' ? (powerUpSeleccionado?.id === 'esc' || powerUpSeleccionado?.id === 'mine'? 1 : 0.7) : 1,
             transition: 'all 0.5s', textAlign: 'center',
             boxShadow: powerUpSeleccionado?.id === 'esc' || powerUpSeleccionado?.id === 'mine' ? '0 0 20px #ec9c12' : 'none',
-            borderRadius: '8px'
+            borderRadius: '8px', marginBottom: '100px', marginLeft: '50px'
           }}>
           <h4 style={{ margin: '0 0 10px 0', color: powerUpSeleccionado?.id === 'esc' || powerUpSeleccionado?.id === 'mine' ? '#f59e0b' : '#aaa' }}>
             {powerUpSeleccionado?.id === 'esc' ? '🛡️ ELIGE UNA CELDA PARA ESCUDAR' : 
@@ -474,7 +474,7 @@ function ModoIA({alSalir, alElegir}) {
           {fase === 'JUGANDO' && (
             <div style={{
               display: 'flex', flexDirection: 'column', alignItems: 'center', margin: '0 auto', width: 'fit-content',
-              transform: 'scale(0.9)', transition: 'all 0.5s',
+              transform: 'scale(0.95)', transition: 'all 0.5s',
               boxShadow: turnoMio ? '0 0 20px #3b82f6' : 'none',
               borderRadius: '8px', textAlign: 'center'
             }}>
