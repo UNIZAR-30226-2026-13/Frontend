@@ -77,7 +77,8 @@ export const usarRadar = (f,c,tableroEnemigo) => {
   let barcosRestantes = 0;
   for (let i = filaMin; i < filaMax; i++){
     for (let j = colMin; j < colMax; j++){
-      if (tableroEnemigo[i][j] == ESTADOS_CASILLAS.BARCO){
+      const tipoR = tableroEnemigo[i][j]?.tipo ?? tableroEnemigo[i][j];
+      if (tipoR === ESTADOS_CASILLAS.BARCO){
         barcosRestantes++;
       }
     }
@@ -91,10 +92,11 @@ export const usarRadar = (f,c,tableroEnemigo) => {
 /* Escudo: Aplica un escudo a una celda de tu tablero */
 export const aplicarEscudo = (f,c, tableroMio) => {
   const celda = tableroMio[f][c];
-  if (celda !== ESTADOS_CASILLAS.BARCO) return null;
+  const tipoCelda = celda?.tipo ?? celda;
+  if (tipoCelda !== ESTADOS_CASILLAS.BARCO) return null;
 
   const nuevoTablero = tableroMio.map(fila => [...fila]);
-  nuevoTablero[f][c] = ESTADOS_CASILLAS.ESCUDO;
+  nuevoTablero[f][c] = typeof celda === 'object' ? { ...celda, tipo: ESTADOS_CASILLAS.ESCUDO }: ESTADOS_CASILLAS.ESCUDO;
   return nuevoTablero;
 };
 
@@ -110,11 +112,8 @@ export const usarTornado = (f, c, tableroEnemigo, powerUpsEnemigos) => {
   const celdasDisponibles = [];
   for (let i = filaMin; i < filaMax; i++) {
     for (let j = colMin; j < colMax; j++) {
-      if (
-        tableroEnemigo[i][j] !== ESTADOS_CASILLAS.TOCADO &&
-        tableroEnemigo[i][j] !== ESTADOS_CASILLAS.AGUA &&
-        tableroEnemigo[i][j] !== ESTADOS_CASILLAS.HUNDIDO
-      ) {
+      const tipoT = tableroEnemigo[i][j]?.tipo ?? tableroEnemigo[i][j];
+      if (tipoT !== ESTADOS_CASILLAS.TOCADO && tipoT !== ESTADOS_CASILLAS.AGUA && tipoT !== ESTADOS_CASILLAS.HUNDIDO) {
         celdasDisponibles.push([i, j]);
       }
     }

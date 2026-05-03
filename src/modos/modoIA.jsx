@@ -35,7 +35,16 @@ const generarTableroIA = () => {
           celdas.push([fD, cD]);
         }
         if (cabe) {
-          celdas.forEach(([fd, cd]) => nuevoTablero[fd][cd] = ESTADOS_CASILLAS.BARCO);
+          //celdas.forEach(([fd, cd]) => nuevoTablero[fd][cd] = ESTADOS_CASILLAS.BARCO);
+          celdas.forEach(([fd, cd], i) => {
+            nuevoTablero[fd][cd] = {
+              tipo: ESTADOS_CASILLAS.BARCO,
+              barcoId: barcoConfig.id,
+              orientacion: orientacion,
+              indice: i,
+              total: barcoConfig.tam
+            };
+          });
           colocado = true;
         }
       }
@@ -45,22 +54,21 @@ const generarTableroIA = () => {
 };
 
 const obtenerCeldasBarcoCompleto = (tablero, f, c) => {
-  const celdas = [[f, c]];
-  const direcciones = [[0, 1], [0, -1], [1, 0], [-1, 0]];
+  const celdaInicial = tablero[f][c];
+  // Usamos barcoId y orientacion del objeto para encontrar todas las celdas
+  if (typeof celdaInicial !== 'object' || !celdaInicial?.barcoId) return [[f, c]];
+  
+  const { barcoId, orientacion, total } = celdaInicial;
+  const celdas = [];
 
-  direcciones.forEach(([df, dc]) => {
-    let nf = f + df;
-    let nc = c + dc;
-    
-    while (
-      nf >= 0 && nf < TAM && nc >= 0 && nc < TAM && 
-      (tablero[nf][nc] === ESTADOS_CASILLAS.BARCO || tablero[nf][nc] === ESTADOS_CASILLAS.TOCADO)
-    ) {
-      celdas.push([nf, nc]);
-      nf += df;
-      nc += dc;
+  // Buscamos la celda con indice 0 para empezar desde el principio
+  for (let i = 0; i < total; i++) {
+    const fD = orientacion === 'V' ? f - celdaInicial.indice + i : f;
+    const cD = orientacion === 'H' ? c - celdaInicial.indice + i : c;
+    if (fD >= 0 && fD < TAM && cD >= 0 && cD < TAM) {
+      celdas.push([fD, cD]);
     }
-  });
+  }
   return celdas;
 };
 
@@ -83,8 +91,8 @@ function ModoIA({alSalir, alElegir}) {
   const [inventarioMio, setInventarioMio] = useState([]); // Power-ups que poseo
 
   //Ver si alguno ha ganado
-  const ganoYo = !enemigos.flat().includes(ESTADOS_CASILLAS.BARCO);
-  const ganaIA = !mios.flat().some(c => c === ESTADOS_CASILLAS.BARCO || c === ESTADOS_CASILLAS.ESCUDO);
+  const ganoYo = !enemigos.flat().some(c => c?.tipo === ESTADOS_CASILLAS.BARCO || c === ESTADOS_CASILLAS.BARCO);
+  const ganaIA = !mios.flat().some(c => c?.tipo === ESTADOS_CASILLAS.BARCO || c === ESTADOS_CASILLAS.ESCUDO);
   const fin = fase === 'JUGANDO' && (ganoYo || ganaIA);
 
   // Resultado del radar
@@ -122,25 +130,36 @@ function ModoIA({alSalir, alElegir}) {
         do { 
             f = Math.floor(Math.random()*TAM);
             c = Math.floor(Math.random()*TAM); 
-        } while (mios[f][c] === ESTADOS_CASILLAS.TOCADO || mios[f][c] === ESTADOS_CASILLAS.AGUA);
+        }while (
+          mios[f][c] === ESTADOS_CASILLAS.TOCADO || 
+          mios[f][c] === ESTADOS_CASILLAS.AGUA   ||
+          mios[f][c]?.tipo === ESTADOS_CASILLAS.TOCADO ||
+          mios[f][c]?.tipo === ESTADOS_CASILLAS.AGUA
+        );
 
         const nuevo = mios.map(fila => [...fila]);
-        if (nuevo[f][c] === ESTADOS_CASILLAS.MINA) {
-          nuevo[f][c] = ESTADOS_CASILLAS.AGUA; // La mina explota
+        const valorCelda = nuevo[f][c];
+        const tipoActual = valorCelda?.tipo ?? valorCelda;
+
+        if (tipoActual === ESTADOS_CASILLAS.MINA) {
+          nuevo[f][c] = ESTADOS_CASILLAS.AGUA;
           Mios(nuevo);
           setTurnosPenalizados(1); // Pierde el siguiente turno
           setMensajeMina('ia');
           TurnoMio(true);
           return;
         }
-        if (nuevo[f][c] === ESTADOS_CASILLAS.ESCUDO) {
-          // Toca escudo, la celda vuelve a ser barco
-          nuevo[f][c] = ESTADOS_CASILLAS.BARCO;
+        if (tipoActual === ESTADOS_CASILLAS.ESCUDO) {
+          nuevo[f][c] = { ...valorCelda, tipo: ESTADOS_CASILLAS.BARCO }; // vuelve a ser barco
           Mios(nuevo);
           TurnoMio(true); // La IA pierde el disparo
         } else {
-          const acierto = nuevo[f][c] === ESTADOS_CASILLAS.BARCO;
-          nuevo[f][c] = acierto ? ESTADOS_CASILLAS.TOCADO : ESTADOS_CASILLAS.AGUA;
+          const acierto = tipoActual === ESTADOS_CASILLAS.BARCO;
+          if (acierto) {
+            nuevo[f][c] = { ...valorCelda, tipo: ESTADOS_CASILLAS.TOCADO };
+          } else {
+            nuevo[f][c] = ESTADOS_CASILLAS.AGUA;
+          }
           Mios(nuevo);
           if (!acierto) TurnoMio(true);
         }
@@ -149,8 +168,13 @@ function ModoIA({alSalir, alElegir}) {
     }
   }, [turnoMio, mios, fin, fase]);
 
+  // funcion de diparo del barco (clickar en una celda rival)
   const disparar = (f, c) => {
-    if (fase !== 'JUGANDO' || !turnoMio || fin || enemigos[f][c] > 1) return;
+    //if (fase !== 'JUGANDO' || !turnoMio || fin || enemigos[f][c] > 1) return;
+    const tipoEnemigo = enemigos[f][c]?.tipo ?? enemigos[f][c];
+    if (fase !== 'JUGANDO' || !turnoMio || fin) return;
+    if (tipoEnemigo === ESTADOS_CASILLAS.TOCADO || tipoEnemigo === ESTADOS_CASILLAS.AGUA || tipoEnemigo === ESTADOS_CASILLAS.HUNDIDO) return;
+
     // radar
     if (powerUpSeleccionado?.id === 'rad') {
       const resultado = usarRadar(f, c, enemigos);
@@ -169,13 +193,21 @@ function ModoIA({alSalir, alElegir}) {
       const idsEncontrados = [];
 
       celdasImpacto.forEach(([tf, tc]) => {
-        const esBarco = nuevoEnemigos[tf][tc] === ESTADOS_CASILLAS.BARCO;
-        nuevoEnemigos[tf][tc] = esBarco ? ESTADOS_CASILLAS.TOCADO : ESTADOS_CASILLAS.AGUA;
+        const celdaTor = nuevoEnemigos[tf][tc];
+        const tipoTor = celdaTor?.tipo ?? celdaTor;
+        const esBarco = tipoTor === ESTADOS_CASILLAS.BARCO;
+        nuevoEnemigos[tf][tc] = esBarco ? (typeof celdaTor === 'object' ? { ...celdaTor, tipo: ESTADOS_CASILLAS.TOCADO } : ESTADOS_CASILLAS.TOCADO) : ESTADOS_CASILLAS.AGUA;
         if (esBarco) {
           acierto = true;
           const celdasDelBarco = obtenerCeldasBarcoCompleto(nuevoEnemigos, tf, tc);
-          const hundido = celdasDelBarco.every(([bf, bc]) => nuevoEnemigos[bf][bc] === ESTADOS_CASILLAS.TOCADO);
-          if (hundido) celdasDelBarco.forEach(([bf, bc]) => { nuevoEnemigos[bf][bc] = ESTADOS_CASILLAS.HUNDIDO; });
+          const hundido = celdasDelBarco.every(([bf, bc]) => {
+            const t = nuevoEnemigos[bf][bc]?.tipo ?? nuevoEnemigos[bf][bc];
+            return t === ESTADOS_CASILLAS.TOCADO || t === ESTADOS_CASILLAS.HUNDIDO;
+          });
+          if (hundido) celdasDelBarco.forEach(([bf, bc]) => {
+            const cel = nuevoEnemigos[bf][bc];
+            nuevoEnemigos[bf][bc] = typeof cel === 'object' ? { ...cel, tipo: ESTADOS_CASILLAS.HUNDIDO } : ESTADOS_CASILLAS.HUNDIDO;
+          });
         }
         const idPU = copiaPUEnemigos[tf][tc];
         if (idPU) { idsEncontrados.push(idPU); copiaPUEnemigos[tf][tc] = null; }
@@ -215,18 +247,25 @@ function ModoIA({alSalir, alElegir}) {
       if (nuevoEnemigos[df][dc] === ESTADOS_CASILLAS.TOCADO || 
           nuevoEnemigos[df][dc] === ESTADOS_CASILLAS.AGUA) return;
 
-      const aciertoBarco = nuevoEnemigos[df][dc] === ESTADOS_CASILLAS.BARCO;
-      nuevoEnemigos[df][dc] = aciertoBarco ? ESTADOS_CASILLAS.TOCADO : ESTADOS_CASILLAS.AGUA;
+      const tipoCelda = nuevoEnemigos[df][dc]?.tipo ?? nuevoEnemigos[df][dc];
+      const celdaEnemiga = nuevoEnemigos[df][dc];
+      const tipoCeldaEnemiga = celdaEnemiga?.tipo ?? celdaEnemiga;
+      const aciertoBarco = tipoCeldaEnemiga === ESTADOS_CASILLAS.BARCO;
+      nuevoEnemigos[df][dc] = aciertoBarco ? (typeof celdaEnemiga === 'object' ? { ...celdaEnemiga, tipo: ESTADOS_CASILLAS.TOCADO } : ESTADOS_CASILLAS.TOCADO): ESTADOS_CASILLAS.AGUA;
+      
       if (aciertoBarco) {
-          aciertoGlobalBarco = true; // Poner acierto a true si el disparo impacta
+        aciertoGlobalBarco = true; // Poner acierto a true si el disparo impacta
 
-        const celdasDelBarco = obtenerCeldasBarcoCompleto(nuevoEnemigos, f, c);
-        const estaHundido = celdasDelBarco.every(([bf, bc]) => nuevoEnemigos[bf][bc] === ESTADOS_CASILLAS.TOCADO);
-        
+        const celdasDelBarco = obtenerCeldasBarcoCompleto(nuevoEnemigos, df, dc);
+        const estaHundido = celdasDelBarco.every(([bf, bc]) => {
+          const t = nuevoEnemigos[bf][bc]?.tipo ?? nuevoEnemigos[bf][bc];
+          return t === ESTADOS_CASILLAS.TOCADO || t === ESTADOS_CASILLAS.HUNDIDO;
+        }); 
+
         if (estaHundido) {
           celdasDelBarco.forEach(([bf, bc]) => {
-            nuevoEnemigos[bf][bc] = ESTADOS_CASILLAS.HUNDIDO;
-          });
+          const c = nuevoEnemigos[bf][bc];
+          nuevoEnemigos[bf][bc] = typeof c === 'object' ? { ...c, tipo: ESTADOS_CASILLAS.HUNDIDO } : ESTADOS_CASILLAS.HUNDIDO;});
         }
       }
 
@@ -329,15 +368,24 @@ function ModoIA({alSalir, alElegir}) {
         alert("¡El barco se sale del tablero!");
         return;
       }
-      if (nuevoTablero[filaD][colD] !== ESTADOS_CASILLAS.VACIO) {
+      //comprueba tanto numero 0 como objeto barco
+      const celdaActual = nuevoTablero[filaD][colD];
+      const estaOcupada = celdaActual !== ESTADOS_CASILLAS.VACIO && celdaActual !== null;
+      if (estaOcupada) {
         alert("Casilla ocupada, elige otra posición.");
         return;
       }
-      celdasAOCupar.push([filaD, colD]);
+      celdasAOCupar.push([filaD, colD, i]); 
     }
 
-    celdasAOCupar.forEach(([fd, cd]) => {
-      nuevoTablero[fd][cd] = ESTADOS_CASILLAS.BARCO;
+    celdasAOCupar.forEach(([fd, cd, indice]) => { 
+      nuevoTablero[fd][cd] = {
+        tipo: ESTADOS_CASILLAS.BARCO,
+        barcoId: barcoSeleccionado.id,
+        orientacion: orientacion,
+        indice: indice, 
+        total: barcoSeleccionado.tam
+      };
     });
 
     Mios(nuevoTablero);
@@ -354,7 +402,8 @@ function ModoIA({alSalir, alElegir}) {
     for(let f=0; f<TAM; f++) {
       for(let c=0; c<TAM; c++) {
         // Si hay barco mío Y hay power-up en esa casilla
-        if (mios[f][c] === ESTADOS_CASILLAS.BARCO && powerupsMios[f][c]) {
+        const tipoCelda = mios[f][c]?.tipo ?? mios[f][c];
+        if (tipoCelda === ESTADOS_CASILLAS.BARCO && powerupsMios[f][c]){
           nuevosPUsGanados.push(POWER_UPS[powerupsMios[f][c]]);
           powerupsMios[f][c] = null; // Se elimina del tablero porque ya se recolectó
         }

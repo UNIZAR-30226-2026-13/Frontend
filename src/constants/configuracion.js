@@ -88,3 +88,11 @@ export const RUSH_CONFIG = {
 export const ESTADOS_CASILLAS = {
     VACIO: 0, BARCO: 1, TOCADO: 2, AGUA: 3, MINA: 4, ESCUDO: 5, HUNDIDO: 6
 };
+
+// skins
+export const SKINS = {
+  DEFAULT: { id: 'default', nombre: 'Acero' },
+  MILITAR: { id: 'militar', nombre: 'Militar' },
+  DORADO:  { id: 'dorado',  nombre: 'Dorado' },
+  FANTASMA:{ id: 'fantasma',nombre: 'Fantasma' },
+};
