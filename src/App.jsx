@@ -11,8 +11,13 @@ import JuegoPrivada from './modos/modoPrivada';
 
 
 function App() {
-  const [modo, setModo] = useState('INICIO'); 
-  const [usuario, setUsuario] = useState(null);
+  // MOCK: Empezamos directamente en el menú con un usuario de prueba
+  const [modo, setModo] = useState('MENU'); 
+  const [usuario, setUsuario] = useState({ username: 'Comandante_Mock', token: 'fake_token' });
+
+  //const [modo, setModo] = useState('INICIO'); 
+  //const [usuario, setUsuario] = useState(null);
+
   //const [IDjugador, setIDjugador] = useState(null); para cuando backedn
 
   const [configPrivada, setConfigPrivada] = useState(null);
