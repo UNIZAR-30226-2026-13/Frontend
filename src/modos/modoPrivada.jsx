@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { ESTADOS_CASILLAS, BARCOS } from '../constants/configuracion';
 import Celda from '../components/celda';
 import socketService from '../api/socketService';
+import Tablero from '../components/tablero';
+import Barcos from '../components/barcos';
 
 function JuegoPrivada({ alSalir, configuracion }) {
   const [fasePartida, setFasePartida] = useState('ESPERANDO'); //ESPERANDO
@@ -15,6 +17,12 @@ function JuegoPrivada({ alSalir, configuracion }) {
   const [cargando, setCargando] = useState(true);
 
   const [errorFatal, setErrorFatal] = useState(null); //estado para capturar colapsos
+
+  //estados colocacion
+  const [barcoSeleccionado, setBarcoSeleccionado] = useState(null);
+  const [orientacion, setOrientacion] = useState('H');
+  const [barcosColocados, setBarcosColocados] = useState([]);
+  const [celdasSombra, setCeldasSombra] = useState([]);
 
 
   useEffect(() => {
@@ -33,22 +41,39 @@ function JuegoPrivada({ alSalir, configuracion }) {
     socketService.onRecibirDisparo((datos) => {
        //el backend nos enviara las coordenadas f y c
        const { f, c } = datos;
-       console.log(`¡Alerta! Misil enemigo detectado en las coordenadas [${f}, ${c}]`);
+       let impactoEnBarco = false;
+       let resultadoImpacto = ESTADOS_CASILLAS.AGUA;
 
        setTableroMio((tableroActual) => {
           const nuevoTablero = tableroActual.map(fila => [...fila]);
-          const estadoCasilla = nuevoTablero[f][c];
+          const caldaAtacada = nuevoTablero[f][c];
+          const tipo = celdaAtacada?.tipo ?? celdaAtacada;
 
           let resultadoImpacto = ESTADOS_CASILLAS.AGUA;
 
-          if (estadoCasilla === ESTADOS_CASILLAS.BARCO) {
-            nuevoTablero[f][c] = ESTADOS_CASILLAS.TOCADO;
+          if (tipo === ESTADOS_CASILLAS.BARCO) {
+            impactoEnBarco = true;
             resultadoImpacto = ESTADOS_CASILLAS.TOCADO;
-            console.log("¡Nos han dado!");
-          } else if (estadoCasilla === ESTADOS_CASILLAS.VACIO) {
+            nuevoTablero[f][c] = typeof celdaAtacada === 'object' ? { ...celdaAtacada, tipo: ESTADOS_CASILLAS.TOCADO } : ESTADOS_CASILLAS.TOCADO;
+            const celdasDelBarco = obtenerCeldasBarcoCompleto(nuevoTablero, f, c);
+            const estaHundido = celdasDelBarco.every(([bf, bc]) => {
+              const t = nuevoTablero[bf][bc]?.tipo ?? nuevoTablero[bf][bc];
+              return t === ESTADOS_CASILLAS.TOCADO || t === ESTADOS_CASILLAS.HUNDIDO;
+            }); 
+
+            if (estaHundido) {
+              resultadoImpacto = ESTADOS_CASILLAS.HUNDIDO;
+              celdasDelBarco.forEach(([bf, bc]) => {
+                const c_obj = nuevoTablero[bf][bc];
+                nuevoTablero[bf][bc] = typeof c_obj === 'object' 
+                  ? { ...c_obj, tipo: ESTADOS_CASILLAS.HUNDIDO } 
+                  : ESTADOS_CASILLAS.HUNDIDO;
+              });
+            }
+          } else if (tipo === ESTADOS_CASILLAS.VACIO) {
             nuevoTablero[f][c] = ESTADOS_CASILLAS.AGUA;
-            console.log("Impacto en el agua.");
           }
+
 
           //le decimos al backend si nos ha dado o ha sido agua para que actualice su pantalla
           socketService.enviarResultadoDisparo({ 
@@ -61,7 +86,9 @@ function JuegoPrivada({ alSalir, configuracion }) {
           return nuevoTablero;
        });
 
-       setTurnoMio(true);
+       setTimeout(() => {
+         if (!impactoEnBarco) setTurnoMio(true);
+       }, 0);
     });
 
     return () => {
@@ -134,8 +161,9 @@ function JuegoPrivada({ alSalir, configuracion }) {
     try {
       if (!tamano) throw new Error("Falta el tamaño del tablero.");
 
-      let nuevoMio = Array(tamano).fill(null).map(() => Array(tamano).fill(ESTADOS_CASILLAS.VACIO));
-      let nuevoEnemigo = Array(tamano).fill(null).map(() => Array(tamano).fill(ESTADOS_CASILLAS.VACIO));
+      const generarVacio = () => Array(tamano).fill(null).map(() => Array(tamano).fill(ESTADOS_CASILLAS.VACIO));
+      let nuevoMio = generarVacio();
+      let nuevoEnemigo = generarVacio();
 
       const listaTamanos = [];
       
@@ -161,8 +189,8 @@ function JuegoPrivada({ alSalir, configuracion }) {
           });
       }
 
-      nuevoMio = colocarBarcosAleatorios(nuevoMio, [...listaTamanos]);
-      nuevoEnemigo = colocarBarcosAleatorios(nuevoEnemigo, [...listaTamanos]);
+      //nuevoMio = colocarBarcosAleatorios(nuevoMio, [...listaTamanos]);
+      nuevoEnemigo = colocarBarcosAleatorios(nuevoEnemigo, [...listaTamanos], numeroBarcos || BARCOS);
 
       setTableroMio(nuevoMio);
       setTableroEnemigo(nuevoEnemigo);
@@ -176,14 +204,20 @@ function JuegoPrivada({ alSalir, configuracion }) {
   };
 
   //funcion colocacion
-  const colocarBarcosAleatorios = (tablero, tamanos) => {
+  const colocarBarcosAleatorios = (tablero, tamanos, numeroBarcosConfig) => {
     const copiaTablero = tablero.map(f => [...f]);
-    
+    const configBarcosArr = Object.entries(numeroBarcosConfig || BARCOS);
+
     tamanos.forEach(tam => {
       let colocado = false;
       let intentos = 0; //contador de intentos
+
+      const entryBarco = configBarcosArr.find(([id, conf]) => conf.tam === tam);
+      const barcoId = entryBarco ? entryBarco[0] : 'unknown';
+
       while (!colocado && intentos < 1000) {
         const vertical = Math.random() > 0.5;
+        const orientacion = vertical ? 'V' : 'H';
         const fila = Math.floor(Math.random() * tamano);
         const col = Math.floor(Math.random() * tamano);
 
@@ -191,7 +225,13 @@ function JuegoPrivada({ alSalir, configuracion }) {
           for (let i = 0; i < tam; i++) {
             const f = vertical ? fila + i : fila;
             const c = vertical ? col : col + i;
-            copiaTablero[f][c] = ESTADOS_CASILLAS.BARCO;
+            copiaTablero[f][c] = {
+                tipo: ESTADOS_CASILLAS.BARCO,
+                barcoId: barcoId,
+                orientacion: orientacion,
+                indice: i,
+                total: tam
+            };
           }
           colocado = true;
         }
@@ -211,45 +251,185 @@ function JuegoPrivada({ alSalir, configuracion }) {
     return true;
   };
 
+  //sombra al colocar barco
+  const manejarHover = (f, c) => {
+    if (fasePartida !== 'COLOCANDO' || !barcoSeleccionado) return;
+    let nuevasCeldas = [];
+    for (let i = 0; i < barcoSeleccionado.tam; i++) {
+      const filaD = orientacion === 'V' ? f + i : f;
+      const colD = orientacion === 'H' ? c + i : c;
+      if (filaD < tamano && colD < tamano) {
+        nuevasCeldas.push(`${filaD}-${colD}`);
+      } 
+    }
+    setCeldasSombra(nuevasCeldas);
+  };
+
+  const obtenerCeldasBarcoCompleto = (tablero, f, c) => {
+    const celdaInicial = tablero[f][c];
+    if (typeof celdaInicial !== 'object' || celdaInicial.indice === undefined) return [[f, c]];
+    
+    const { orientacion, total, indice } = celdaInicial;
+    const celdas = [];
+
+    for (let i = 0; i < total; i++) {
+      const fD = orientacion === 'V' ? f - indice + i : f;
+      const cD = orientacion === 'H' ? c - indice + i : c;
+      if (fD >= 0 && fD < tamano && cD >= 0 && cD < tamano) {
+        celdas.push([fD, cD]);
+      }
+    }
+    return celdas;
+  };
+
+  //colocacion barco
+  const colocarBarcoManual = (f, c) => {
+    if (!barcoSeleccionado || fasePartida !== 'COLOCANDO') return;
+    const nuevoTablero = tableroMio.map(fila => [...fila]);
+    const celdasAOCupar = [];
+
+    for (let i = 0; i < barcoSeleccionado.tam; i++) {
+      const filaD = orientacion === 'V' ? f + i : f;
+      const colD = orientacion === 'H' ? c + i : c;
+      if (filaD >= tamano || colD >= tamano) {
+        alert("¡El barco se sale del tablero!");
+        return;
+      }
+      const celdaActual = nuevoTablero[filaD][colD];
+      const estaOcupada = celdaActual !== ESTADOS_CASILLAS.VACIO && celdaActual !== null;
+      if (estaOcupada) {
+        alert("Casilla ocupada, elige otra posición.");
+        return;
+      }
+      celdasAOCupar.push([filaD, colD, i]); 
+    }
+
+    celdasAOCupar.forEach(([fd, cd, indice]) => { 
+      nuevoTablero[fd][cd] = {
+        tipo: ESTADOS_CASILLAS.BARCO,
+        barcoId: barcoSeleccionado.id,
+        orientacion: orientacion,
+        indice: indice, 
+        total: barcoSeleccionado.tam
+      };
+    });
+
+    setTableroMio(nuevoTablero);
+    setBarcosColocados([...barcosColocados, barcoSeleccionado]);
+    setBarcoSeleccionado(null); 
+    setCeldasSombra([]);
+  };
+
   //logica disparo
   const disparar = (f, c) => {
-    if (!turnoMio || tableroEnemigo[f][c] > 1) return;
-
-    socketService.disparar(codigoSala, f, c); //enviamos disparo al servidor
-
-    const nuevo = tableroEnemigo.map(fila => [...fila]);
+    const tipoEnemigo = tableroEnemigo[f][c]?.tipo ?? tableroEnemigo[f][c];
+    if (fasePartida !== 'JUGANDO' || !turnoMio || celdasSombra.length > 0 || !turnoMio || 
+        tipoEnemigo === ESTADOS_CASILLAS.TOCADO || tipoEnemigo === ESTADOS_CASILLAS.AGUA || tipoEnemigo === ESTADOS_CASILLAS.HUNDIDO) return;
     
-    if (nuevo[f][c] === ESTADOS_CASILLAS.BARCO) {
-      nuevo[f][c] = ESTADOS_CASILLAS.TOCADO;
-    } else {
-      nuevo[f][c] = ESTADOS_CASILLAS.AGUA;
-      setTurnoMio(false);
+    // MOCK para que no de error
+    if (socketService?.socket?.connected) {
+        socketService.disparar(codigoSala, f, c);
     }
-    setTableroEnemigo(nuevo);
+
+    // MOCK logica de jugabilidad
+    setTableroEnemigo((tableroActual) => {
+        const nuevoEnemigos = tableroActual.map(fila => [...fila]);
+        const celdaEnemiga = nuevoEnemigos[f][c];
+        const tipoActual = celdaEnemiga?.tipo ?? celdaEnemiga;
+
+        let aciertoBarco = false;
+
+        if (tipoActual === ESTADOS_CASILLAS.BARCO) {
+            aciertoBarco = true;
+            
+            nuevoEnemigos[f][c] = typeof celdaEnemiga === 'object' 
+                ? { ...celdaEnemiga, tipo: ESTADOS_CASILLAS.TOCADO } 
+                : ESTADOS_CASILLAS.TOCADO;
+
+            const celdasDelBarco = obtenerCeldasBarcoCompleto(nuevoEnemigos, f, c);
+            const estaHundido = celdasDelBarco.every(([bf, bc]) => {
+                const t = nuevoEnemigos[bf][bc]?.tipo ?? nuevoEnemigos[bf][bc];
+                return t === ESTADOS_CASILLAS.TOCADO || t === ESTADOS_CASILLAS.HUNDIDO;
+            });
+
+            if (estaHundido) {
+                celdasDelBarco.forEach(([bf, bc]) => {
+                    const c_obj = nuevoEnemigos[bf][bc];
+                    nuevoEnemigos[bf][bc] = typeof c_obj === 'object' 
+                        ? { ...c_obj, tipo: ESTADOS_CASILLAS.HUNDIDO } 
+                        : ESTADOS_CASILLAS.HUNDIDO;
+                });
+                console.log("¡Hundimos un barco enemigo!");
+            }
+        } else if (tipoActual === ESTADOS_CASILLAS.VACIO) {
+            nuevoEnemigos[f][c] = ESTADOS_CASILLAS.AGUA;
+        }
+
+        if (!aciertoBarco) {
+            setTurnoMio(false); 
+        }
+
+        return nuevoEnemigos;
+    });
   };
 
   //MOCK para simular que el backend nos manda un disparo
   const simularAtaqueEnemigo = () => {
-    //coordenadas aleatorias
-    const f = Math.floor(Math.random() * tamano);
-    const c = Math.floor(Math.random() * tamano);
+    try {
+      let f, c, tipoActual;
+      let intentos = 0;
+      do {
+        f = Math.floor(Math.random() * tamano);
+        c = Math.floor(Math.random() * tamano);
+        const celda = tableroMio[f][c];
+        tipoActual = celda?.tipo ?? celda;
+        intentos++;
+      } while ((tipoActual === ESTADOS_CASILLAS.TOCADO || tipoActual === ESTADOS_CASILLAS.AGUA || tipoActual === ESTADOS_CASILLAS.HUNDIDO) && intentos < 100);
 
-    console.log(`[SIMULACRO] Misil enemigo entrante en [${f}, ${c}]`);
+      let impactoEnBarco = false; //control del turno
 
-    setTableroMio((tableroActual) => {
-      const nuevoTablero = tableroActual.map(fila => [...fila]);
-      const estadoCasilla = nuevoTablero[f][c];
+      setTableroMio((tableroActual) => {
+        const nuevoTablero = tableroActual.map(fila => [...fila]);
+        const celdaAtacada = nuevoTablero[f][c];
+        const tipo = celdaAtacada?.tipo ?? celdaAtacada;
 
-      if (estadoCasilla === ESTADOS_CASILLAS.BARCO) {
-        nuevoTablero[f][c] = ESTADOS_CASILLAS.TOCADO;
-      } else if (estadoCasilla === ESTADOS_CASILLAS.VACIO) {
-        nuevoTablero[f][c] = ESTADOS_CASILLAS.AGUA;
-      }
-      return nuevoTablero;
-    });
+        if (tipo === ESTADOS_CASILLAS.BARCO) {
+          impactoEnBarco = true; //conservam turno si hay acierto
+          
+          nuevoTablero[f][c] = typeof celdaAtacada === 'object' 
+            ? { ...celdaAtacada, tipo: ESTADOS_CASILLAS.TOCADO } 
+            : ESTADOS_CASILLAS.TOCADO;
 
-    // Nos devuelve el turno
-    setTurnoMio(true);
+          const celdasDelBarco = obtenerCeldasBarcoCompleto(nuevoTablero, f, c);
+          const estaHundido = celdasDelBarco.every(([bf, bc]) => {
+            const t = nuevoTablero[bf][bc]?.tipo ?? nuevoTablero[bf][bc];
+            return t === ESTADOS_CASILLAS.TOCADO || t === ESTADOS_CASILLAS.HUNDIDO;
+          });
+
+          if (estaHundido) {
+            celdasDelBarco.forEach(([bf, bc]) => {
+              const c_obj = nuevoTablero[bf][bc];
+              nuevoTablero[bf][bc] = typeof c_obj === 'object' 
+                ? { ...c_obj, tipo: ESTADOS_CASILLAS.HUNDIDO } 
+                : ESTADOS_CASILLAS.HUNDIDO;
+            });
+            console.log("¡Han hundido nuestro barco!");
+          }
+        } else if (tipo === ESTADOS_CASILLAS.VACIO) {
+          nuevoTablero[f][c] = ESTADOS_CASILLAS.AGUA;
+        }
+        return nuevoTablero;
+      });
+
+      setTimeout(() => {
+        if (!impactoEnBarco) {
+          setTurnoMio(true);
+        }
+      }, 0);
+
+    } catch (error) {
+      console.error("Error en simulacro:", error);
+    }
   };
 
   if (errorFatal) {
@@ -291,7 +471,7 @@ function JuegoPrivada({ alSalir, configuracion }) {
           <button 
             onClick={() => {
               prepararPartida(); 
-              setFasePartida('JUGANDO');
+              setFasePartida('COLOCANDO');
             }}
             style={{ marginTop: '50px', padding: '15px 30px', background: '#10b981', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' }}
           >
@@ -301,62 +481,96 @@ function JuegoPrivada({ alSalir, configuracion }) {
       );
     }
 
-  if (cargando) return <div style={{color: 'white'}}>Cargando flota...</div>;
+  if (cargando) return <div style={{color: 'white', padding: '50px', textAlign: 'center'}}>Cargando flota...</div>;
+
+  const totalBarcosAColocar = numeroBarcos ? Object.values(numeroBarcos).reduce((a, b) => a + b, 0) : 0;
 
   return (
-    <div style={{ padding: '20px', color: 'white', textAlign: 'center' }}>
-      <button onClick={alSalir} style={estiloBotonSalir}>← ABORTAR</button>
+    <div style={{ background: '#1a1a1a', color: 'white', width: '100vw', height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        
+      <header style={{ padding: '10px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #333' }}>
+        <button onClick={alSalir} style={{ background: '#ef4444', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' }}>← ABORTAR</button>
+        <h2 style={{ margin: 0, fontSize: '1.5rem' }}>
+          {fasePartida === 'COLOCANDO' ? `CONFIGURACIÓN DE FLOTA (${tamano}x${tamano})` : 
+           (fasePartida === 'JUGANDO' ? (turnoMio ? "TU TURNO" : "TURNO ENEMIGO") : "SALA DE TRANSMISIÓN")}
+        </h2>
+        <div style={{ width: '80px' }}></div>
+      </header>
+        
       
-      <h2>MODO PRIVADO: {tamano}x{tamano}</h2>
-      <p>{turnoMio ? "TU TURNO" : "TURNO ENEMIGO"}</p>
+      
 
-      <div style={{ display: 'flex', gap: '50px', justifyContent: 'center', marginTop: '20px' }}>
+      <main style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
     
-        <div>
-          <h3>Tu Flota</h3>
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: `repeat(${tamano}, 30px)`, //para que quepan las celdas
-            gap: '2px' 
-          }}>
-            {tableroMio.map((fila, f) => fila.map((celda, c) => (
-              <Celda key={`m-${f}-${c}`} valor={celda} esIA={false} />
-            )))}
-          </div>
-        </div>
+        {fasePartida === 'COLOCANDO' && (
+          <aside style={{ width: '300px', background: '#222', padding: '20px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', borderRight: '1px solid #333', overflowY: 'auto' }}>
+            <Barcos 
+              barcoSeleccionado={barcoSeleccionado}
+              alSeleccionar={setBarcoSeleccionado}
+              barcosColocados={barcosColocados}
+              orientacion={orientacion}
+              alCambiarOrientacion={() => {
+                setOrientacion(orientacion === 'H' ? 'V' : 'H');
+                setCeldasSombra([]);
+              }}
+            />
 
-    
-        <div>
-          <h3>Océano Enemigo</h3>
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: `repeat(${tamano}, 30px)`, 
-            gap: '2px' 
-          }}>
-            {tableroEnemigo.map((fila, f) => fila.map((celda, c) => (
-              <Celda 
-                key={`e-${f}-${c}`} 
-                valor={celda} 
-                esIA={true} 
-                alClickar={() => disparar(f, c)} 
-              />
-            )))}
-          </div>
-        </div>
-
-        {/* boton MOCK solo para pruebas sin backend */}
-        {!turnoMio && (
-          <div style={{ marginTop: '40px' }}>
-            <button 
-              onClick={simularAtaqueEnemigo}
-              style={{ padding: '15px 30px', background: '#eab308', color: 'black', border: 'none', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' }}
-            >
-              [MOCK] Forzar respuesta enemiga
-            </button>
-          </div>
+            {/*MOCK  preparacion*/}
+            {barcosColocados.length === totalBarcosAColocar && (
+              <button
+                onClick={() => setFasePartida('JUGANDO')} //aqui enviariamos tablero_listo por socket
+                style={{ marginTop: '20px', padding: '15px', fontSize: '16px', cursor: 'pointer', background: '#10b981', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold' }}
+              >
+                [MOCK] ¡LISTO PARA LUCHAR!
+              </button>
+            )}
+          </aside>
         )}
 
-      </div>
+  
+        <section style={{ flex: 1, display: 'flex', flexDirection: fasePartida === 'COLOCANDO' ? 'column' : 'row', alignItems: 'center', justifyContent: 'center', gap: '30px', padding: '20px', position: 'relative' }}>
+          
+          {/*mi tablero*/}
+          {(fasePartida === 'COLOCANDO' || fasePartida === 'JUGANDO') && (
+            <div style={{ transform: fasePartida === 'JUGANDO' ? 'scale(0.85)' : 'scale(1)', transition: 'all 0.5s', textAlign: 'center', borderRadius: '8px' }}>
+              <h4 style={{ margin: '0 0 10px 0', color: '#aaa' }}>TU FLOTA</h4>
+              <Tablero 
+                cuadricula={tableroMio} 
+                alDisparar={fasePartida === 'COLOCANDO' ? colocarBarcoManual : () => {}}
+                esIA={false} 
+                celdasSombra={fasePartida === 'COLOCANDO' ? celdasSombra : []}
+                alEntrarCelda={manejarHover}
+                alSalirTablero={() => setCeldasSombra([])}
+              />
+            </div>
+          )}
+
+          {/*tablero enemigo*/}
+          {fasePartida === 'JUGANDO' && (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', transform: 'scale(0.95)', transition: 'all 0.5s', boxShadow: turnoMio ? '0 0 20px #3b82f6' : 'none', borderRadius: '8px', textAlign: 'center' }}>
+              <h4 style={{ margin: '0 0 10px 0', color: '#3b82f6' }}>OCÉANO ENEMIGO</h4>
+              <Tablero
+                cuadricula={tableroEnemigo}
+                alDisparar={disparar}
+                esIA={true}
+                celdasSombra={[]}
+                alEntrarCelda={() => {}}
+                alSalirTablero={() => {}}
+              />
+
+              {/* boton MOCK solo para pruebas sin backend */}
+              {!turnoMio && (
+                <button 
+                  onClick={simularAtaqueEnemigo}
+                  style={{ padding: '15px 30px', background: '#eab308', color: 'black', border: 'none', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' }}
+                >
+                  [MOCK] Forzar respuesta enemiga
+                </button>
+              )}
+            </div>
+          )}
+        </section>
+      </main>
     </div>
   );
 }
