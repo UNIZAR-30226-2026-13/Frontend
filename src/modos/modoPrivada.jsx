@@ -96,7 +96,7 @@ function JuegoPrivada({ alSalir, configuracion }) {
     setCargando(false);
   };*/
 
-  const prepararPartida = () => {
+  /*const prepararPartida = () => {
       try {
         //si faltan datos lanzamos un error
         if (!tamano || !numeroBarcos) {
@@ -127,7 +127,53 @@ function JuegoPrivada({ alSalir, configuracion }) {
         setErrorFatal(error.message);
         setCargando(false);
       }
-    };
+    };*/
+
+    //prepararPartida momentanea sin backend, para MOCK
+    const prepararPartida = () => {
+    try {
+      if (!tamano) throw new Error("Falta el tamaño del tablero.");
+
+      let nuevoMio = Array(tamano).fill(null).map(() => Array(tamano).fill(ESTADOS_CASILLAS.VACIO));
+      let nuevoEnemigo = Array(tamano).fill(null).map(() => Array(tamano).fill(ESTADOS_CASILLAS.VACIO));
+
+      const listaTamanos = [];
+      
+      let usarFlotaEmergencia = false;
+      if (!numeroBarcos) {
+          usarFlotaEmergencia = true;
+      } else {
+          Object.keys(numeroBarcos).forEach(id => {
+              if (!BARCOS[id]) usarFlotaEmergencia = true;
+          });
+      }
+
+      if (usarFlotaEmergencia) {
+          console.warn("Coordenadas del menú corruptas. Desplegando flota de emergencia...");
+          Object.keys(BARCOS).forEach(idValido => {
+              listaTamanos.push(BARCOS[idValido].tam);
+          });
+      } else {
+          Object.entries(numeroBarcos).forEach(([id, cantidad]) => {
+            for (let i = 0; i < cantidad; i++) {
+              listaTamanos.push(BARCOS[id].tam);
+            }
+          });
+      }
+
+      nuevoMio = colocarBarcosAleatorios(nuevoMio, [...listaTamanos]);
+      nuevoEnemigo = colocarBarcosAleatorios(nuevoEnemigo, [...listaTamanos]);
+
+      setTableroMio(nuevoMio);
+      setTableroEnemigo(nuevoEnemigo);
+      setCargando(false);
+      
+    } catch (error) {
+      console.error("Fallo del Sistema:", error);
+      setErrorFatal(error.message);
+      setCargando(false);
+    }
+  };
 
   //funcion colocacion
   const colocarBarcosAleatorios = (tablero, tamanos) => {
@@ -180,6 +226,30 @@ function JuegoPrivada({ alSalir, configuracion }) {
       setTurnoMio(false);
     }
     setTableroEnemigo(nuevo);
+  };
+
+  //MOCK para simular que el backend nos manda un disparo
+  const simularAtaqueEnemigo = () => {
+    //coordenadas aleatorias
+    const f = Math.floor(Math.random() * tamano);
+    const c = Math.floor(Math.random() * tamano);
+
+    console.log(`[SIMULACRO] Misil enemigo entrante en [${f}, ${c}]`);
+
+    setTableroMio((tableroActual) => {
+      const nuevoTablero = tableroActual.map(fila => [...fila]);
+      const estadoCasilla = nuevoTablero[f][c];
+
+      if (estadoCasilla === ESTADOS_CASILLAS.BARCO) {
+        nuevoTablero[f][c] = ESTADOS_CASILLAS.TOCADO;
+      } else if (estadoCasilla === ESTADOS_CASILLAS.VACIO) {
+        nuevoTablero[f][c] = ESTADOS_CASILLAS.AGUA;
+      }
+      return nuevoTablero;
+    });
+
+    // Nos devuelve el turno
+    setTurnoMio(true);
   };
 
   if (errorFatal) {
@@ -273,6 +343,19 @@ function JuegoPrivada({ alSalir, configuracion }) {
             )))}
           </div>
         </div>
+
+        {/* boton MOCK solo para pruebas sin backend */}
+        {!turnoMio && (
+          <div style={{ marginTop: '40px' }}>
+            <button 
+              onClick={simularAtaqueEnemigo}
+              style={{ padding: '15px 30px', background: '#eab308', color: 'black', border: 'none', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' }}
+            >
+              [MOCK] Forzar respuesta enemiga
+            </button>
+          </div>
+        )}
+
       </div>
     </div>
   );
