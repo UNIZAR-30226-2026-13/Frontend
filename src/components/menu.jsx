@@ -57,38 +57,36 @@ function Menu({ alElegir, usuario }) {
 
       <h1 style={{ fontSize: '50px', color: '#ffffff', marginBottom: '60px' }}>HUNDE LA FLOTA</h1>
       <div style={{
-        display: 'grid',    // un div para que aparezcan de dos en dos
-        gridTemplateColumns: '300px 300px',
+        display: 'flex',
+        flexDirection: 'column',
         gap: '50px'
       }}>
-        {/* Botones de los modos */}
-        <button 
-          onClick={() => alElegir('IA')} 
-          style={botonStyle}
-        >
-          JUGAR VS IA
-        </button>
-
+        {/*botones de los modos*/}
         <button 
           onClick={() => alElegir('1VS1')} 
-          style={botonStyle}
+          style={botonHeroStyle}
         >
           1 VS 1
         </button>
 
-        <button 
-          onClick={() => alElegir('PRIVADA')} 
-          style={botonStyle}
-        >
-          Partida privada
-        </button>
+        <div style={{
+          display: 'flex',
+          gap: '30px'
+        }}>
+          <button 
+            onClick={() => alElegir('IA')} 
+            style={botonStyle}
+          >
+            JUGAR VS IA
+          </button>
 
-        <button 
-          //onClick={() => alElegir('1VS1')} 
-          style={botonStyle}
-        >
-          Rush!
-        </button>
+          <button 
+            onClick={() => alElegir('PRIVADA')} 
+            style={botonStyle}
+          >
+            PARTIDA PRIVADA
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -104,6 +102,20 @@ const botonStyle = {
   borderRadius: '10px',
   cursor: 'pointer',
   width: '300px',
+  transition: 'all 0.3s'
+};
+
+const botonHeroStyle = {
+  padding: '25px 40px',
+  fontSize: '26px',
+  fontWeight: 'bold',
+  background: '#3b82f6',
+  color: 'white',
+  border: '2px solid #60a5fa',
+  borderRadius: '10px',
+  cursor: 'pointer',
+  width: '630px', 
+  boxShadow: '0 4px 15px rgba(59, 130, 246, 0.4)',
   transition: 'all 0.3s'
 };
 
