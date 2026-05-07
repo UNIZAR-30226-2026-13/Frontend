@@ -4,6 +4,9 @@ import Celda from '../components/celda';
 import socketService from '../api/socketService';
 import Tablero from '../components/tablero';
 import Barcos from '../components/barcos';
+import Inventario from '../components/inventario';
+import { generarTabPowerUps, obtenerCeldasImpacto, procesarInventario, usarRadar, aplicarEscudo, usarTornado, obtenerHoverPowerUp } from '../components/Powerups';
+import { POWER_UPS } from '../constants/configuracion';
 
 function JuegoPrivada({ alSalir, configuracion }) {
   const [fasePartida, setFasePartida] = useState('ESPERANDO'); //ESPERANDO
@@ -23,6 +26,13 @@ function JuegoPrivada({ alSalir, configuracion }) {
   const [orientacion, setOrientacion] = useState('H');
   const [barcosColocados, setBarcosColocados] = useState([]);
   const [celdasSombra, setCeldasSombra] = useState([]);
+
+  //estados powerups
+  const [powerUpsMios, setPUMios] = useState([]); 
+  const [powerUpsEnemigos, setPUEnemigos] = useState([]); 
+  const [inventarioMio, setInventarioMio] = useState([]); 
+  const [powerUpSeleccionado, setPowerUpSeleccionado] = useState(null);
+  const [resultadoRadar, setResultadoRadar] = useState(null);
 
 
   useEffect(() => {
@@ -165,6 +175,15 @@ function JuegoPrivada({ alSalir, configuracion }) {
       let nuevoMio = generarVacio();
       let nuevoEnemigo = generarVacio();
 
+      //mapas invisibles de power-ups con los ajustes del creador de la partida
+      const numPUs = configuracion?.numPowerups || 0;
+      const puCogidos = configuracion?.powerupsCogidos || [];
+      
+      const puMios = generarTabPowerUps(tamano, numPUs, puCogidos);
+      const puEnemigos = generarTabPowerUps(tamano, numPUs, puCogidos);
+      setPUMios(puMios);
+      setPUEnemigos(puEnemigos);
+
       const listaTamanos = [];
       
       let usarFlotaEmergencia = false;
@@ -252,17 +271,58 @@ function JuegoPrivada({ alSalir, configuracion }) {
   };
 
   //sombra al colocar barco
-  const manejarHover = (f, c) => {
-    if (fasePartida !== 'COLOCANDO' || !barcoSeleccionado) return;
-    let nuevasCeldas = [];
-    for (let i = 0; i < barcoSeleccionado.tam; i++) {
-      const filaD = orientacion === 'V' ? f + i : f;
-      const colD = orientacion === 'H' ? c + i : c;
-      if (filaD < tamano && colD < tamano) {
-        nuevasCeldas.push(`${filaD}-${colD}`);
+  const manejarHover = (f, c, esTableroEnemigo) => {
+    try{
+      let nuevasCeldas = [];
+
+      if (fasePartida === 'COLOCANDO'){
+        if (esTableroEnemigo) { setCeldasSombra([]); return; }
+        if(barcoSeleccionado){
+          for (let i = 0; i < barcoSeleccionado.tam; i++) {
+            const filaD = orientacion === 'V' ? f + i : f;
+            const colD = orientacion === 'H' ? c + i : c;
+            if (filaD < tamano && colD < tamano) {
+              nuevasCeldas.push(`${filaD}-${colD}`);
+            } 
+          }
+        }
       } 
+      else if (fasePartida === 'JUGANDO' && turnoMio) {
+        const esPowerUpDefensivo = powerUpSeleccionado?.id === 'esc' || powerUpSeleccionado?.id === 'mine';
+        if (esPowerUpDefensivo) {
+          if (esTableroEnemigo) { setCeldasSombra([]); return; }
+          nuevasCeldas = [...obtenerHoverPowerUp(f, c, powerUpSeleccionado, tamano)];
+        }
+        else {
+          if (!esTableroEnemigo) { setCeldasSombra([]); return; }
+          if (powerUpSeleccionado?.id === 'tor' || powerUpSeleccionado?.id === 'rad') {
+            //cuadrante dinamico para tornado y radar
+            const mitad = Math.floor(tamano / 2);
+            const filaMin = f < mitad ? 0 : mitad;
+            const filaMax = f < mitad ? mitad : tamano;
+            const colMin  = c < mitad ? 0 : mitad;
+            const colMax  = c < mitad ? mitad : tamano;
+            
+            for (let i = filaMin; i < filaMax; i++) {
+              for (let j = colMin; j < colMax; j++) {
+                nuevasCeldas.push(`${i}-${j}`);
+              }
+            }
+          } 
+          else if (powerUpSeleccionado) {
+            //para el resto de power-ups
+            nuevasCeldas = [...obtenerHoverPowerUp(f, c, powerUpSeleccionado, tamano)];
+          } 
+          else {
+            nuevasCeldas = [`${f}-${c}`];
+          }
+        }
+      }
+      
+      setCeldasSombra(nuevasCeldas);
+    } catch (err) {
+      console.error("Error Hover:", err);
     }
-    setCeldasSombra(nuevasCeldas);
   };
 
   const obtenerCeldasBarcoCompleto = (tablero, f, c) => {
@@ -320,57 +380,176 @@ function JuegoPrivada({ alSalir, configuracion }) {
     setCeldasSombra([]);
   };
 
+  //usar escudo en mi tablero
+  const usarEscudoEnMio = (f, c) => {
+    if (powerUpSeleccionado?.id !== 'esc') return;
+    const nuevoTablero = aplicarEscudo(f, c, tableroMio);
+    if (nuevoTablero === null) {
+      alert('El escudo solo se puede colocar en una celda con barco');
+      return;
+    }
+    setTableroMio(nuevoTablero);
+    setInventarioMio(procesarInventario(inventarioMio, powerUpSeleccionado, []));
+    setPowerUpSeleccionado(null);
+  };
+
+  //usar mina en mi tablero
+  const usarMinaEnMio = (f, c) => {
+    if (powerUpSeleccionado?.id !== 'mine') return;
+    if (tableroMio[f][c] !== ESTADOS_CASILLAS.VACIO && tableroMio[f][c]?.tipo !== ESTADOS_CASILLAS.VACIO) {
+      alert('La mina solo se puede colocar en agua (celda vacía)');
+      return;
+    }
+    const nuevoTablero = tableroMio.map(fila => [...fila]);
+    nuevoTablero[f][c] = { tipo: ESTADOS_CASILLAS.MINA };
+    setTableroMio(nuevoTablero);
+    setInventarioMio(procesarInventario(inventarioMio, powerUpSeleccionado, []));
+    setPowerUpSeleccionado(null);
+  };
+
+  const empezarBatalla = () => {
+    //recolectamos power-ups del jugador bajo sus barcos
+    const nuevosPUsGanados = [];
+    const copiaPowerUpsMios = powerUpsMios.map(f => [...f]);
+
+    for(let f=0; f<tamano; f++) {
+      for(let c=0; c<tamano; c++) {
+        const tipoCelda = tableroMio[f][c]?.tipo ?? tableroMio[f][c];
+        if (tipoCelda === ESTADOS_CASILLAS.BARCO && copiaPowerUpsMios[f][c]){
+          nuevosPUsGanados.push(POWER_UPS[copiaPowerUpsMios[f][c]]);
+          copiaPowerUpsMios[f][c] = null; //ya cogido, lo borramos
+        }
+      }
+    }
+    
+    setInventarioMio(nuevosPUsGanados);
+    setPUMios(copiaPowerUpsMios);
+    setFasePartida('JUGANDO');
+  };
+
   //logica disparo
   const disparar = (f, c) => {
     const tipoEnemigo = tableroEnemigo[f][c]?.tipo ?? tableroEnemigo[f][c];
-    if (fasePartida !== 'JUGANDO' || !turnoMio || celdasSombra.length > 0 || !turnoMio || 
+    if (fasePartida !== 'JUGANDO' || !turnoMio ||  
         tipoEnemigo === ESTADOS_CASILLAS.TOCADO || tipoEnemigo === ESTADOS_CASILLAS.AGUA || tipoEnemigo === ESTADOS_CASILLAS.HUNDIDO) return;
     
     // MOCK para que no de error
-    if (socketService?.socket?.connected) {
+    if (socketService?.socket?.connected && !powerUpSeleccionado) {
         socketService.disparar(codigoSala, f, c);
+    }
+
+    //logica radar
+    if (powerUpSeleccionado?.id === 'rad') {
+      const resultado = usarRadar(f, c, tableroEnemigo, tamano);
+      setResultadoRadar(resultado); 
+      setInventarioMio(procesarInventario(inventarioMio, powerUpSeleccionado, []));
+      setPowerUpSeleccionado(null);
+      return;
+    }
+
+    //logica tornado
+    if (powerUpSeleccionado?.id === 'tor') {
+      const celdasImpacto = usarTornado(f, c, tableroEnemigo, tamano);
+      
+      setTableroEnemigo((tableroActual) => {
+        const nuevoEnemigos = tableroActual.map(fila => [...fila]);
+        const copiaPUEnemigos = powerUpsEnemigos.map(fila => [...fila]);
+        let acierto = false;
+        const idsEncontrados = [];
+
+        celdasImpacto.forEach(([tf, tc]) => {
+          const celdaTor = nuevoEnemigos[tf][tc];
+          const tipoTor = celdaTor?.tipo ?? celdaTor;
+          const esBarco = tipoTor === ESTADOS_CASILLAS.BARCO;
+          
+          nuevoEnemigos[tf][tc] = esBarco ? (typeof celdaTor === 'object' ? { ...celdaTor, tipo: ESTADOS_CASILLAS.TOCADO } : ESTADOS_CASILLAS.TOCADO) : ESTADOS_CASILLAS.AGUA;
+          
+          if (esBarco) {
+            acierto = true;
+            const celdasDelBarco = obtenerCeldasBarcoCompleto(nuevoEnemigos, tf, tc);
+            const hundido = celdasDelBarco.every(([bf, bc]) => {
+              const t = nuevoEnemigos[bf][bc]?.tipo ?? nuevoEnemigos[bf][bc];
+              return t === ESTADOS_CASILLAS.TOCADO || t === ESTADOS_CASILLAS.HUNDIDO;
+            });
+            if (hundido) celdasDelBarco.forEach(([bf, bc]) => {
+              const cel = nuevoEnemigos[bf][bc];
+              nuevoEnemigos[bf][bc] = typeof cel === 'object' ? { ...cel, tipo: ESTADOS_CASILLAS.HUNDIDO } : ESTADOS_CASILLAS.HUNDIDO;
+            });
+          }
+          const idPU = copiaPUEnemigos[tf][tc];
+          if (idPU) { idsEncontrados.push(idPU); copiaPUEnemigos[tf][tc] = null; }
+        });
+
+        setInventarioMio(procesarInventario(inventarioMio, powerUpSeleccionado, idsEncontrados));
+        setPUEnemigos(copiaPUEnemigos);
+        if (!acierto) setTurnoMio(false); 
+        return nuevoEnemigos;
+      });
+      setPowerUpSeleccionado(null);
+      return;
     }
 
     // MOCK logica de jugabilidad
     setTableroEnemigo((tableroActual) => {
         const nuevoEnemigos = tableroActual.map(fila => [...fila]);
-        const celdaEnemiga = nuevoEnemigos[f][c];
-        const tipoActual = celdaEnemiga?.tipo ?? celdaEnemiga;
+        const copiaPUEnemigos = powerUpsEnemigos.map(fila => [...fila]); 
+        let aciertoGlobalBarco = false;
+        const idsEncontrados = [];
 
-        let aciertoBarco = false;
+        const celdasAfectadas = obtenerCeldasImpacto(f, c, powerUpSeleccionado?.id, tamano);
 
-        if (tipoActual === ESTADOS_CASILLAS.BARCO) {
-            aciertoBarco = true;
-            
-            nuevoEnemigos[f][c] = typeof celdaEnemiga === 'object' 
-                ? { ...celdaEnemiga, tipo: ESTADOS_CASILLAS.TOCADO } 
-                : ESTADOS_CASILLAS.TOCADO;
+        celdasAfectadas.forEach(([df, dc]) => {
+            const celdaEnemiga = nuevoEnemigos[df][dc];
+            const tipoActual = celdaEnemiga?.tipo ?? celdaEnemiga;
 
-            const celdasDelBarco = obtenerCeldasBarcoCompleto(nuevoEnemigos, f, c);
-            const estaHundido = celdasDelBarco.every(([bf, bc]) => {
-                const t = nuevoEnemigos[bf][bc]?.tipo ?? nuevoEnemigos[bf][bc];
-                return t === ESTADOS_CASILLAS.TOCADO || t === ESTADOS_CASILLAS.HUNDIDO;
-            });
+            if (tipoActual === ESTADOS_CASILLAS.TOCADO || tipoActual === ESTADOS_CASILLAS.AGUA || tipoActual === ESTADOS_CASILLAS.HUNDIDO) return;
 
-            if (estaHundido) {
-                celdasDelBarco.forEach(([bf, bc]) => {
-                    const c_obj = nuevoEnemigos[bf][bc];
-                    nuevoEnemigos[bf][bc] = typeof c_obj === 'object' 
-                        ? { ...c_obj, tipo: ESTADOS_CASILLAS.HUNDIDO } 
-                        : ESTADOS_CASILLAS.HUNDIDO;
+            if (tipoActual === ESTADOS_CASILLAS.BARCO) {
+                aciertoGlobalBarco = true; 
+                nuevoEnemigos[df][dc] = typeof celdaEnemiga === 'object' 
+                    ? { ...celdaEnemiga, tipo: ESTADOS_CASILLAS.TOCADO } : ESTADOS_CASILLAS.TOCADO;
+
+                const celdasDelBarco = obtenerCeldasBarcoCompleto(nuevoEnemigos, df, dc);
+                const estaHundido = celdasDelBarco.every(([bf, bc]) => {
+                    const t = nuevoEnemigos[bf][bc]?.tipo ?? nuevoEnemigos[bf][bc];
+                    return t === ESTADOS_CASILLAS.TOCADO || t === ESTADOS_CASILLAS.HUNDIDO;
                 });
-                console.log("¡Hundimos un barco enemigo!");
+
+                if (estaHundido) {
+                    celdasDelBarco.forEach(([bf, bc]) => {
+                        const c_obj = nuevoEnemigos[bf][bc];
+                        nuevoEnemigos[bf][bc] = typeof c_obj === 'object' 
+                            ? { ...c_obj, tipo: ESTADOS_CASILLAS.HUNDIDO } : ESTADOS_CASILLAS.HUNDIDO;
+                    });
+                }
+            } else if (tipoActual === ESTADOS_CASILLAS.VACIO) {
+                nuevoEnemigos[df][dc] = ESTADOS_CASILLAS.AGUA;
             }
-        } else if (tipoActual === ESTADOS_CASILLAS.VACIO) {
-            nuevoEnemigos[f][c] = ESTADOS_CASILLAS.AGUA;
+
+            const idEncontrado = copiaPUEnemigos[df][dc];
+            if (idEncontrado) {
+                idsEncontrados.push(idEncontrado);
+                copiaPUEnemigos[df][dc] = null; 
+                console.log("¡Power-Up interceptado!", idEncontrado);
+            }
+        });
+
+        const inventarioActualizado = procesarInventario(inventarioMio, powerUpSeleccionado, idsEncontrados);
+        setInventarioMio(inventarioActualizado);
+        setPUEnemigos(copiaPUEnemigos); 
+        
+        if (powerUpSeleccionado?.id === 'doble') {
+            aciertoGlobalBarco = true; 
         }
 
-        if (!aciertoBarco) {
+        if (!aciertoGlobalBarco) {
             setTurnoMio(false); 
         }
 
         return nuevoEnemigos;
     });
+
+    setPowerUpSeleccionado(null);
   };
 
   //MOCK para simular que el backend nos manda un disparo
@@ -498,6 +677,28 @@ function JuegoPrivada({ alSalir, configuracion }) {
       </header>
         
       
+      {/*resultado del radar*/}
+          {resultadoRadar && (
+            <div style={{
+              position: 'absolute', top: '30px', right: '30px', background: '#1e3a5f', border: '2px solid #3b82f6',
+              borderRadius: '10px', padding: '15px 20px', color: 'white', textAlign: 'center', zIndex: 5, minWidth: '180px'
+            }}>
+              <div style={{ fontSize: '24px' }}>📡</div>
+              <div style={{ fontWeight: 'bold', marginBottom: '5px' }}>
+                CUADRANTE {resultadoRadar.cuadrante + 1}
+              </div>
+              <div style={{ fontSize: '14px', color: '#93c5fd', marginBottom: '8px' }}>
+                Filas {resultadoRadar.filaMin + 1}–{resultadoRadar.filaMax} · Cols {resultadoRadar.colMin + 1}–{resultadoRadar.colMax}
+              </div>
+              <div style={{ fontSize: '18px' }}>
+                 <strong>{resultadoRadar.barcosRestantes}</strong> celda{resultadoRadar.barcosRestantes !== 1 ? 's' : ''} de barco
+              </div>
+              <button 
+                onClick={() => setResultadoRadar(null)}
+                style={{ marginTop: '10px', padding: '5px 12px', cursor: 'pointer', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '5px', fontSize: '13px' }}
+              >Cerrar</button>
+            </div>
+          )}
       
 
       <main style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
@@ -518,7 +719,7 @@ function JuegoPrivada({ alSalir, configuracion }) {
             {/*MOCK  preparacion*/}
             {barcosColocados.length === totalBarcosAColocar && (
               <button
-                onClick={() => setFasePartida('JUGANDO')} //aqui enviariamos tablero_listo por socket
+                onClick={empezarBatalla} //aqui enviariamos tablero_listo por socket
                 style={{ marginTop: '20px', padding: '15px', fontSize: '16px', cursor: 'pointer', background: '#10b981', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold' }}
               >
                 [MOCK] ¡LISTO PARA LUCHAR!
@@ -536,10 +737,13 @@ function JuegoPrivada({ alSalir, configuracion }) {
               <h4 style={{ margin: '0 0 10px 0', color: '#aaa' }}>TU FLOTA</h4>
               <Tablero 
                 cuadricula={tableroMio} 
-                alDisparar={fasePartida === 'COLOCANDO' ? colocarBarcoManual : () => {}}
+                alDisparar={fasePartida === 'COLOCANDO' ? colocarBarcoManual : 
+                  (powerUpSeleccionado?.id === 'esc' ? usarEscudoEnMio : 
+                  (powerUpSeleccionado?.id === 'mine' ? usarMinaEnMio : () => {}))
+                }
                 esIA={false} 
-                celdasSombra={fasePartida === 'COLOCANDO' ? celdasSombra : []}
-                alEntrarCelda={manejarHover}
+                celdasSombra={(fasePartida === 'COLOCANDO' || powerUpSeleccionado?.id === 'esc' || powerUpSeleccionado?.id === 'mine') ? celdasSombra : []}
+                alEntrarCelda={(f, c) => manejarHover(f, c, false)}
                 alSalirTablero={() => setCeldasSombra([])}
               />
             </div>
@@ -553,9 +757,15 @@ function JuegoPrivada({ alSalir, configuracion }) {
                 cuadricula={tableroEnemigo}
                 alDisparar={disparar}
                 esIA={true}
-                celdasSombra={[]}
-                alEntrarCelda={() => {}}
-                alSalirTablero={() => {}}
+                celdasSombra={fasePartida === 'JUGANDO' ? celdasSombra : []}
+                alEntrarCelda={(f, c) => manejarHover(f, c, true)}
+                alSalirTablero={() => setCeldasSombra([])}
+              />
+
+              <Inventario 
+                inventarioMio={inventarioMio}
+                powerUpSeleccionado={powerUpSeleccionado}
+                alSeleccionar={setPowerUpSeleccionado}
               />
 
               {/* boton MOCK solo para pruebas sin backend */}

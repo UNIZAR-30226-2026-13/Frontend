@@ -1,35 +1,41 @@
 import { BARCOS, TABLEROS, ESTADOS_CASILLAS, POWER_UPS } from '../constants/configuracion'; 
 
-const TAM = TABLEROS.ESTANDAR_TAM;
+//const TAM = TABLEROS.ESTANDAR_TAM;
 
 //Crear mapa con power-ups
-export const generarTabPowerUps = () => {
-  let mapa = Array(TAM).fill(null).map(() => Array(TAM).fill(ESTADOS_CASILLAS.VACIO));; // Crea matriz vacía
-  const keys = Object.keys(POWER_UPS);
-  
+export const generarTabPowerUps = (tamano, numPowerups, powerupsDisponibles) => {
+  let mapa = Array(tamano).fill(null).map(() => Array(tamano).fill(ESTADOS_CASILLAS.VACIO));; // Crea matriz vacía
+
+  //si no han elegido power-ups o el ratio es 0, mapa vacio
+  if (!powerupsDisponibles || powerupsDisponibles.length === 0 || numPowerups <= 0) {
+      return mapa;
+  }
+
   // Ponemos, por ejemplo, 5 power-ups aleatorios
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < numPowerups; i++) {
     let colocado = false;
-    while (!colocado) {
-      const f = Math.floor(Math.random() * TAM);
-      const c = Math.floor(Math.random() * TAM);
+    let intentos = 0;
+    while (!colocado && intentos < 1000) {
+      const f = Math.floor(Math.random() * tamano);
+      const c = Math.floor(Math.random() * tamano);
       if (mapa[f][c] === ESTADOS_CASILLAS.VACIO) {
-        const itemAleatorio = POWER_UPS[keys[Math.floor(Math.random() * keys.length)]];
-        mapa[f][c] = itemAleatorio.id; // Guardamos el ID del power-up
+        const idAleatorio = powerupsDisponibles[Math.floor(Math.random() * powerupsDisponibles.length)];
+        mapa[f][c] = idAleatorio; // Guardamos el ID del power-up
         colocado = true;
       }
+      intentos++;
     }
   }
   return mapa;
 };
 
-export const obtenerHoverPowerUp = (f, c, powerUpSeleccionado) => {
-  const celdasCoordenadas = obtenerCeldasImpacto( f, c, powerUpSeleccionado?.id);
+export const obtenerHoverPowerUp = (f, c, powerUpSeleccionado, tamano) => {
+  const celdasCoordenadas = obtenerCeldasImpacto( f, c, powerUpSeleccionado?.id, tamano);
   return celdasCoordenadas.map(([rf, rc]) => `${rf}-${rc}`);
 };
 
 
-export const obtenerCeldasImpacto = (f, c, tipo) => {
+export const obtenerCeldasImpacto = (f, c, tipo, tamano) => {
   const celdas = [[f, c]]; // Por defecto
 
   if (tipo === 'deflagrador') {
@@ -38,11 +44,10 @@ export const obtenerCeldasImpacto = (f, c, tipo) => {
       [f, c - 1], [f, c + 1]
     ];
     adyacentes.forEach(([af, ac]) => {
-      if (af >= 0 && af < TAM && ac >= 0 && ac < TAM) {
+      if (af >= 0 && af < tamano && ac >= 0 && ac < tamano) {
         celdas.push([af, ac]);
       }
     });
-    return celdas;
   }
   return celdas;
 };
@@ -67,18 +72,18 @@ export const procesarInventario = (inventarioActual, powerUpUsado, powerUpsEncon
 
 /* Radar: Revela cuantos barcos hay en el cuadrate de la celda elegida */
 
-export const usarRadar = (f,c,tableroEnemigo) => {
-  const mitad = Math.floor(TAM/2);
+export const usarRadar = (f,c,tableroEnemigo, tamano) => {
+  const mitad = Math.floor(tamano/2);
   const filaMin = f < mitad ? 0 : mitad;
-  const filaMax = f < mitad ? mitad : TAM;
+  const filaMax = f < mitad ? mitad : tamano;
   const colMin = c < mitad ? 0 : mitad;
-  const colMax = c < mitad ? mitad : TAM;
+  const colMax = c < mitad ? mitad : tamano;
 
   let barcosRestantes = 0;
   for (let i = filaMin; i < filaMax; i++){
     for (let j = colMin; j < colMax; j++){
       const tipoR = tableroEnemigo[i][j]?.tipo ?? tableroEnemigo[i][j];
-      if (tipoR === ESTADOS_CASILLAS.BARCO){
+      if (tipoR === ESTADOS_CASILLAS.BARCO || tipoR === ESTADOS_CASILLAS.ESCUDO){
         barcosRestantes++;
       }
     }
@@ -101,12 +106,12 @@ export const aplicarEscudo = (f,c, tableroMio) => {
 };
 
 /*Tornado: dispara a 5 celdas random del cuadrante al cual pertenece esa celda */
-export const usarTornado = (f, c, tableroEnemigo, powerUpsEnemigos) => {
-  const mitad = Math.floor(TAM / 2);
+export const usarTornado = (f, c, tableroEnemigo, tamano) => {
+  const mitad = Math.floor(tamano / 2);
   const filaMin = f < mitad ? 0 : mitad;
-  const filaMax = f < mitad ? mitad : TAM;
+  const filaMax = f < mitad ? mitad : tamano;
   const colMin = c < mitad ? 0 : mitad;
-  const colMax = c < mitad ? mitad : TAM;
+  const colMax = c < mitad ? mitad : tamano;
 
   // Recogemos celdas válidas del cuadrante
   const celdasDisponibles = [];
@@ -120,9 +125,8 @@ export const usarTornado = (f, c, tableroEnemigo, powerUpsEnemigos) => {
   }
 
   const rand = celdasDisponibles.sort(() => Math.random() - 0.5);
-  const celdasImpacto = rand.slice(0, 5);
 
-  return celdasImpacto;
+  return rand.slice(0, 5);
 };
 
 
