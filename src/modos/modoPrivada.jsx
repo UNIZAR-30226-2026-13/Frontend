@@ -754,7 +754,8 @@ function JuegoPrivada({ alSalir, configuracion }) {
           
           {/*mi tablero*/}
           {(fasePartida === 'COLOCANDO' || fasePartida === 'JUGANDO') && (
-            <div style={{ transform: fasePartida === 'JUGANDO' ? 'scale(0.85)' : 'scale(1)', transition: 'all 0.5s', textAlign: 'center', borderRadius: '8px' }}>
+            //<div style={{ transform: fasePartida === 'JUGANDO' ? 'scale(0.85)' : 'scale(1)', transition: 'all 0.5s', textAlign: 'center', borderRadius: '8px' }}>
+            <div style={{ transform: 'scale(1)', transition: 'all 0.5s', textAlign: 'center', borderRadius: '8px' }}>  
               <h4 style={{ margin: '0 0 10px 0', color: '#aaa' }}>TU FLOTA</h4>
               <Tablero 
                 cuadricula={tableroMio} 

@@ -27,11 +27,15 @@ function Tablero({ cuadricula, alDisparar, esIA, powerUpSeleccionado, celdasSomb
       onMouseLeave={alSalirTablero} 
       style={{
         display: 'grid', 
-        gridTemplateColumns: `repeat(${tamano}, 40px)`, 
+        gridTemplateColumns: `repeat(${tamano}, 1fr)`, //1fr para que cada columna ocupe el mismo espacio (flexible)
         gap: '4px',
         backgroundColor: '#222', 
         padding: '10px', 
-        borderRadius: '8px'
+        borderRadius: '8px',
+        width: '100%',               //ocupan todo el ancho disponible
+        minWidth: '500px',           //pero no enanos
+        maxWidth: '55vh',            //pero no gigantes
+        aspectRatio: '1 / 1'         //siempre cuadrado
       }}
     >
       {cuadricula.map((fila, i) => 

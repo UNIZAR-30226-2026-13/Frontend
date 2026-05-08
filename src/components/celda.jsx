@@ -80,8 +80,8 @@ function Celda({ valor, alClickar, esIA, estaEnSombra, alEntrar }) {
       onClick={alClickar}
       onMouseEnter={alEntrar}
       style={{
-        width: '40px',
-        height: '40px',
+        width: '100%',
+        height: '100%', //ocupan todo el espacio del grid
         border: '1px solid #1a3a4a',
         backgroundImage: `url(${imgAgua})`,
         backgroundSize: 'cover',
@@ -100,10 +100,11 @@ function Celda({ valor, alClickar, esIA, estaEnSombra, alEntrar }) {
           alt=""
           style={{
             position: 'absolute',
-            left: valor.orientacion === 'H' ? `${-valor.indice * 44}px` : '0px',
-            top:  valor.orientacion === 'V' ? `${-valor.indice * 44}px` : '0px',
-            width:  valor.orientacion === 'H' ? `${valor.total * 44}px` : '44px',
-            height: valor.orientacion === 'V' ? `${valor.total * 44}px` : '44px',
+            //les sumo los 4px de gap del grid
+            left: valor.orientacion === 'H' ? `calc(${-valor.indice * 100}% - ${valor.indice * 4}px)` : '0px',
+            top:  valor.orientacion === 'V' ? `calc(${-valor.indice * 100}% - ${valor.indice * 4}px)` : '0px',
+            width:  valor.orientacion === 'H' ? `calc(${valor.total * 100}% + ${(valor.total - 1) * 4}px)` : '100%',
+            height: valor.orientacion === 'V' ? `calc(${valor.total * 100}% + ${(valor.total - 1) * 4}px)` : '100%',
             objectFit: 'fill',  // para que ocupe todo
             pointerEvents: 'none',  
             zIndex: 1,
