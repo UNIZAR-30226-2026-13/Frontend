@@ -1,6 +1,6 @@
 import { BARCOS } from '../constants/configuracion';
 
-function Barcos({ barcoSeleccionado, alSeleccionar, barcosColocados, orientacion, alCambiarOrientacion }) {
+function Barcos({ barcoSeleccionado, alSeleccionar, barcosColocados, orientacion, alCambiarOrientacion, numeroBarcosPermitidos }) {
   return (
     <div style={{ 
       display: 'flex', 
@@ -31,8 +31,12 @@ function Barcos({ barcoSeleccionado, alSeleccionar, barcosColocados, orientacion
         gap: '8px' 
       }}>
         {Object.values(BARCOS).map((barco) => {
+          //logica dinamica, si modoPrivada nos manda ajustes los usamos, sino usamos la cantidad por defecto
+          const cantidadPermitida = numeroBarcosPermitidos ? (numeroBarcosPermitidos[barco.id] || 0) : barco.cantidad;
+          if (cantidadPermitida === 0) return null;
+
           const cantidadColocada = barcosColocados.filter(b => b.id === barco.id).length;
-          const estaCompleto = cantidadColocada >= barco.cantidad;
+          const estaCompleto = cantidadColocada >= cantidadPermitida;
 
           return (
             <div 
@@ -49,7 +53,7 @@ function Barcos({ barcoSeleccionado, alSeleccionar, barcosColocados, orientacion
               }}
             >
               <div style={{ fontWeight: 'bold', fontSize: '14px' }}>{barco.nombre}</div>
-              <div style={{ fontSize: '12px' }}>{cantidadColocada} / {barco.cantidad} unidades</div>
+              <div style={{ fontSize: '12px' }}>{cantidadColocada} / {cantidadPermitida} unidades</div>
             </div>
           );
         })}

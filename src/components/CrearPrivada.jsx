@@ -276,19 +276,25 @@ function CrearPrivada({ alEmpezar, alSalir}){
                     
 
           <button 
-            onClick={() => alEmpezar({ tamano, numeroBarcos, powerupsCogidos, ratioPowerups, numPowerups })}
+            onClick={() =>{
+              if (partidaEsValida) {
+                alEmpezar({ tamano, numeroBarcos, powerupsCogidos, ratioPowerups, numPowerups });
+              }
+            }} 
+            disabled={!partidaEsValida}
             style={{
               padding: '20px 60px',
-              background: '#00ff00',
-              color: 'black',
+              background: partidaEsValida ? '#00ff00' : '#555',
+              color: partidaEsValida ? 'black' : '#888',
               border: 'none',
               borderRadius: '10px',
               fontSize: '20px',
               fontWeight: 'bold',
-              cursor: 'pointer',
-              marginTop: '40px'
+              cursor: partidaEsValida ? 'pointer' : 'not-allowed',
+              marginTop: '40px',
+              transition: 'all 0.3s'
             }}>
-              EMPEZAR PARTIDA PRIVADA
+              {partidaEsValida ? 'EMPEZAR PARTIDA PRIVADA' : 'LÍMITE DE CASILLAS EXCEDIDO'}
           </button>
           <button 
           onClick={alSalir} 

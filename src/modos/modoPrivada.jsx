@@ -56,7 +56,7 @@ function JuegoPrivada({ alSalir, configuracion }) {
 
        setTableroMio((tableroActual) => {
           const nuevoTablero = tableroActual.map(fila => [...fila]);
-          const caldaAtacada = nuevoTablero[f][c];
+          const celdaAtacada = nuevoTablero[f][c];
           const tipo = celdaAtacada?.tipo ?? celdaAtacada;
 
           let resultadoImpacto = ESTADOS_CASILLAS.AGUA;
@@ -185,8 +185,33 @@ function JuegoPrivada({ alSalir, configuracion }) {
       setPUEnemigos(puEnemigos);
 
       const listaTamanos = [];
+      const configAUsar = configuracion?.numeroBarcos;
+      //genero lista de barcos segun lo q me viene del menu
+      if (configAUsar) {
+        Object.entries(configAUsar).forEach(([id, cantidad]) => {
+          const barcoReal = Object.values(BARCOS).find(b => b.id === id);
+          if (barcoReal) {
+            for (let i = 0; i < cantidad; i++) {
+              listaTamanos.push(barcoReal.tam);
+            }
+          }
+        });
+      } else {
+        //si falla conexion con menu
+        Object.values(BARCOS).forEach(barco => {
+          for (let i = 0; i < barco.cantidad; i++) {
+            listaTamanos.push(barco.tam);
+          }
+        });
+      }
+
+      //pasamos la configuracion a usar tambien al enemigo
+      nuevoEnemigo = colocarBarcosAleatorios(nuevoEnemigo, [...listaTamanos], configAUsar || BARCOS);
+      setTableroMio(nuevoMio);
+      setTableroEnemigo(nuevoEnemigo);
+      setCargando(false);
       
-      let usarFlotaEmergencia = false;
+      /*let usarFlotaEmergencia = false;
       if (!numeroBarcos) {
           usarFlotaEmergencia = true;
       } else {
@@ -206,33 +231,25 @@ function JuegoPrivada({ alSalir, configuracion }) {
               listaTamanos.push(BARCOS[id].tam);
             }
           });
-      }
-
-      //nuevoMio = colocarBarcosAleatorios(nuevoMio, [...listaTamanos]);
-      nuevoEnemigo = colocarBarcosAleatorios(nuevoEnemigo, [...listaTamanos], numeroBarcos || BARCOS);
-
-      setTableroMio(nuevoMio);
-      setTableroEnemigo(nuevoEnemigo);
-      setCargando(false);
+      }*/
       
     } catch (error) {
       console.error("Fallo del Sistema:", error);
       setErrorFatal(error.message);
       setCargando(false);
-    }
-  };
+    }};
 
   //funcion colocacion
   const colocarBarcosAleatorios = (tablero, tamanos, numeroBarcosConfig) => {
     const copiaTablero = tablero.map(f => [...f]);
-    const configBarcosArr = Object.entries(numeroBarcosConfig || BARCOS);
 
     tamanos.forEach(tam => {
       let colocado = false;
       let intentos = 0; //contador de intentos
 
-      const entryBarco = configBarcosArr.find(([id, conf]) => conf.tam === tam);
-      const barcoId = entryBarco ? entryBarco[0] : 'unknown';
+      //deduce id real del barco por su tamano
+      const barcoReal = Object.values(BARCOS).find(b => b.tam === tam);
+      const barcoId = barcoReal ? barcoReal.id : 'enemigo';
 
       while (!colocado && intentos < 1000) {
         const vertical = Math.random() > 0.5;
@@ -662,7 +679,10 @@ function JuegoPrivada({ alSalir, configuracion }) {
 
   if (cargando) return <div style={{color: 'white', padding: '50px', textAlign: 'center'}}>Cargando flota...</div>;
 
-  const totalBarcosAColocar = numeroBarcos ? Object.values(numeroBarcos).reduce((a, b) => a + b, 0) : 0;
+  //calculo de cuantos barcos hay que colocar segun la configuracion
+  const totalBarcosAColocar = configuracion?.numeroBarcos
+    ? Object.values(configuracion.numeroBarcos).reduce((a, b) => a + parseInt(b), 0)
+    : Object.values(BARCOS).reduce((a, b) => a + b.cantidad, 0);
 
   return (
     <div style={{ background: '#1a1a1a', color: 'white', width: '100vw', height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -714,6 +734,7 @@ function JuegoPrivada({ alSalir, configuracion }) {
                 setOrientacion(orientacion === 'H' ? 'V' : 'H');
                 setCeldasSombra([]);
               }}
+              numeroBarcosPermitidos={configuracion?.numeroBarcos}
             />
 
             {/*MOCK  preparacion*/}

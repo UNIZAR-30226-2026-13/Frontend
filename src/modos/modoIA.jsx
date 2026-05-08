@@ -85,9 +85,9 @@ function ModoIA({alSalir, alElegir}) {
   const [celdasSombra, setCeldasSombra] = useState([]);
 
   //Power-ups
-  const [powerUpsMios, setPUMios] = useState(generarTabPowerUps()); // Posiciones de PU en MI tablero
+  const [powerUpsMios, setPUMios] = useState(() => generarTabPowerUps(TAM, 5, Object.keys(POWER_UPS)));
   const [powerUpSeleccionado, setPowerUpSeleccionado] = useState(null);
-  const [powerUpsEnemigos, setPUEnemigos] = useState(generarTabPowerUps()); // Se llenará al empezar batalla
+  const [powerUpsEnemigos, setPUEnemigos] = useState(() => generarTabPowerUps(TAM, 5, Object.keys(POWER_UPS)));
   const [inventarioMio, setInventarioMio] = useState([]); // Power-ups que poseo
 
   //Ver si alguno ha ganado
@@ -177,7 +177,7 @@ function ModoIA({alSalir, alElegir}) {
 
     // radar
     if (powerUpSeleccionado?.id === 'rad') {
-      const resultado = usarRadar(f, c, enemigos);
+      const resultado = usarRadar(f, c, enemigos, TAM);
       setResultadoRadar(resultado);
       const inventarioActualizado = procesarInventario(inventarioMio, powerUpSeleccionado, []);
       setInventarioMio(inventarioActualizado);
@@ -186,7 +186,7 @@ function ModoIA({alSalir, alElegir}) {
     }
     // tornado
     if (powerUpSeleccionado?.id === 'tor') {
-      const celdasImpacto = usarTornado(f, c, enemigos);
+      const celdasImpacto = usarTornado(f, c, enemigos, TAM);
       const nuevoEnemigos = enemigos.map(fila => [...fila]);
       const copiaPUEnemigos = powerUpsEnemigos.map(fila => [...fila]);
       let acierto = false;
@@ -241,7 +241,7 @@ function ModoIA({alSalir, alElegir}) {
     let aciertoGlobalBarco = false;
     const idsEncontrados = [];
 
-    const celdasAfectadas = obtenerCeldasImpacto(f, c, powerUpSeleccionado?.id);
+    const celdasAfectadas = obtenerCeldasImpacto(f, c, powerUpSeleccionado?.id, TAM);
 
     celdasAfectadas.forEach(([df, dc]) => { // No hacemos nada si la celda está tocada o es agua
       if (nuevoEnemigos[df][dc] === ESTADOS_CASILLAS.TOCADO || 
@@ -316,7 +316,7 @@ function ModoIA({alSalir, alElegir}) {
               nuevasCeldas.push(`${i}-${j}`);
         }
         else if (powerUpSeleccionado) {
-          nuevasCeldas = [...obtenerHoverPowerUp(f, c, powerUpSeleccionado)];
+          nuevasCeldas = [...obtenerHoverPowerUp(f, c, powerUpSeleccionado, TAM)];
         }
         else {
           nuevasCeldas = [`${f}-${c}`] // Solo la misma celda
