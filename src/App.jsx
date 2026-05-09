@@ -70,7 +70,7 @@ function App() {
       
       {modo === 'REGISTRO' && (<Registro alVolverInicio={() => setModo('INICIO')}/>)}
       
-      {modo === 'PERFIL' && (<Perfil alSalir={() => setModo('MENU')} usuario={usuario}/>)}
+      {modo === 'PERFIL' && (<Perfil alSalir={() => setModo('MENU')} usuario={usuario} actualizarUsuario={setUsuario}/>)}
 
       {modo  === 'PRIVADA' && (<CrearPrivada alSalir={() => setModo('MENU')}
                                               alEmpezar={empezarPartidaPrivada}/>)}

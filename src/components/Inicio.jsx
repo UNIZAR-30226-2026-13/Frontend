@@ -11,15 +11,23 @@ function Inicio ({alAcceder, irRegistro, googleLogin}){
         setError('');
         setCargando(true);
         try {
-            const res = await fetch('http://localhost:3000/api/usuario/login',{
+            const res = await fetch('/api/usuario/login',{
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({user: usuario, password: contrasena}),
+              body: JSON.stringify({username: usuario, password: contrasena}),
               credentials: 'include'
             });
             if (res.status === 200){
-              const datosUsuario = await res.json();
-              alAcceder(datosUsuario);
+              if (res.status === 200){
+                const perfilRes = await fetch(`/api/usuario/${usuario}`);
+                if (perfilRes.status === 200) {
+                  const datosPerfil = await perfilRes.json();
+                  localStorage.setItem('_pass', contrasena);
+                  alAcceder(datosPerfil);
+                } else {
+                  setError('Error al cargar el perfil');
+                }
+              }
             } else if ( res.status === 453){
               setError('Usuario o contraseña incorrecta');
             } else{
