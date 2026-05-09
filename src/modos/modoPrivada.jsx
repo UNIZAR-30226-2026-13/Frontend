@@ -19,6 +19,8 @@ function JuegoPrivada({ alSalir, configuracion }) {
   const [turnoMio, setTurnoMio] = useState(true);
   const [cargando, setCargando] = useState(true);
 
+  const [mostrarFin, setMostrarFin] = useState(false);
+
   const [errorFatal, setErrorFatal] = useState(null); //estado para capturar colapsos
 
   //estados colocacion
@@ -33,6 +35,29 @@ function JuegoPrivada({ alSalir, configuracion }) {
   const [inventarioMio, setInventarioMio] = useState([]); 
   const [powerUpSeleccionado, setPowerUpSeleccionado] = useState(null);
   const [resultadoRadar, setResultadoRadar] = useState(null);
+
+  //logica fin de partida
+  //buscamos si queda algun barco (tmbien con escudo) en ambos tableros
+  const ganoYo = fasePartida === 'JUGANDO' && !tableroEnemigo.flat().some(c => {
+    const t = c?.tipo ?? c;
+    return t === ESTADOS_CASILLAS.BARCO || t === ESTADOS_CASILLAS.ESCUDO;
+  });
+
+  const ganaRival = fasePartida === 'JUGANDO' && !tableroMio.flat().some(c => {
+    const t = c?.tipo ?? c;
+    return t === ESTADOS_CASILLAS.BARCO || t === ESTADOS_CASILLAS.ESCUDO;
+  });
+
+  const fin = fasePartida === 'JUGANDO' && (ganoYo || ganaRival);
+
+  useEffect(() => {
+    if (fin) {
+      const timer = setTimeout(() => {
+        setMostrarFin(true);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [fin]);
 
 
   useEffect(() => {
@@ -447,7 +472,7 @@ function JuegoPrivada({ alSalir, configuracion }) {
   //logica disparo
   const disparar = (f, c) => {
     const tipoEnemigo = tableroEnemigo[f][c]?.tipo ?? tableroEnemigo[f][c];
-    if (fasePartida !== 'JUGANDO' || !turnoMio ||  
+    if (fasePartida !== 'JUGANDO' || !turnoMio || fin ||
         tipoEnemigo === ESTADOS_CASILLAS.TOCADO || tipoEnemigo === ESTADOS_CASILLAS.AGUA || tipoEnemigo === ESTADOS_CASILLAS.HUNDIDO) return;
     
     // MOCK para que no de error
@@ -691,7 +716,7 @@ function JuegoPrivada({ alSalir, configuracion }) {
         <button onClick={alSalir} style={{ background: '#ef4444', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' }}>← ABORTAR</button>
         <h2 style={{ margin: 0, fontSize: '1.5rem' }}>
           {fasePartida === 'COLOCANDO' ? `CONFIGURACIÓN DE FLOTA (${tamano}x${tamano})` : 
-           (fasePartida === 'JUGANDO' ? (turnoMio ? "TU TURNO" : "TURNO ENEMIGO") : "SALA DE TRANSMISIÓN")}
+            (fin ? "FIN DE PARTIDA" : (fasePartida === 'JUGANDO' ? (turnoMio ? "TU TURNO" : "TURNO ENEMIGO") : "SALA DE TRANSMISIÓN"))}
         </h2>
         <div style={{ width: '80px' }}></div>
       </header>
@@ -799,6 +824,28 @@ function JuegoPrivada({ alSalir, configuracion }) {
                   [MOCK] Forzar respuesta enemiga
                 </button>
               )}
+            </div>
+          )}
+          {/*pantalla de fin*/}
+          {mostrarFin && (
+            <div style={{
+              position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
+              background: 'rgba(0,0,0,0.85)', display: 'flex', flexDirection: 'column',
+              justifyContent: 'center', alignItems: 'center', zIndex: 10
+            }}>
+              <h2 style={{ fontSize: '48px', color: ganoYo ? '#10b981' : '#ef4444', textShadow: '0 0 20px rgba(0,0,0,0.5)' }}>
+                {ganoYo ? "¡VICTORIA!" : "DERROTA..."}
+              </h2>
+              <p style={{ color: '#aaa', fontSize: '1.2rem', marginBottom: '30px' }}>
+                {ganoYo ? "Has aniquilado por completo la flota enemiga." : "Tus fuerzas han sido hundidas en las profundidades."}
+              </p>
+              <button onClick={alSalir} style={{
+                padding: '15px 30px', fontSize: '20px', cursor: 'pointer', fontWeight: 'bold',
+                background: '#3b82f6', color: 'white', border: 'none', borderRadius: '5px',
+                boxShadow: '0 4px 15px rgba(59, 130, 246, 0.4)', transition: '0.3s'
+              }}>
+                Volver al Cuartel General
+              </button>
             </div>
           )}
         </section>

@@ -9,7 +9,9 @@ class SocketService {
 
   conectar() {
     if (!this.socket) {
-      this.socket = io(SOCKET_URL);
+      this.socket = io(SOCKET_URL, {
+        withCredentials: true 
+      });
     }
   }
 
@@ -20,55 +22,56 @@ class SocketService {
     }
   }
 
-  unirsePartida(salaId) {
-    if (this.socket) this.socket.emit('unirse_partida', salaId);
+  //emits
+
+  unirseSalaPrivada() {
+    if (this.socket) this.socket.emit('join_room'); 
   }
 
   //listeners
 
-  onPartidaLista(callback) {
+  onPartidaEncontrada(callback) {
     if (this.socket) {
-        this.socket.off('partida_lista'); 
-        this.socket.on('partida_lista', callback);
+        this.socket.off('partidaEncontrada'); 
+        this.socket.on('partidaEncontrada', callback);
     }
   }
 
-  onRecibirDisparo(callback) {
+  onColocaBarcos(callback) {
     if (this.socket) {
-        this.socket.off('recibir_disparo');
-        this.socket.on('recibir_disparo', callback);
+        this.socket.off('coloca_barcos');
+        this.socket.on('coloca_barcos', callback);
     }
   }
 
-  onActualizarTableros(callback) {
+  onGuestConectado(callback) {
     if (this.socket) {
-        this.socket.off('actualizar_tableros');
-        this.socket.on('actualizar_tableros', callback);
+        this.socket.off('guest_conectado');
+        this.socket.on('guest_conectado', callback);
     }
   }
 
-  //escuchar cuando el rival ha terminado de colocar sus barcos
-  onRivalListo(callback) {
+  onTuTurno(callback) {
       if(this.socket) {
-          this.socket.off('rival_listo');
-          this.socket.on('rival_listo', callback);
+          this.socket.off('tu_turno');
+          this.socket.on('tu_turno', callback);
       }
   }
 
-  //emits
-
-  enviarTablero(salaId, tablero) {
-      if (this.socket) this.socket.emit('tablero_listo', { salaId, tablero });
+  onActualizarEstado(callback) {
+      if(this.socket) {
+          this.socket.off('actualizar_estado');
+          this.socket.on('actualizar_estado', callback);
+      }
   }
 
-  enviarResultadoDisparo(datos) {
-    if (this.socket) this.socket.emit('resultado_disparo', datos);
+  onPartidaFinalizada(callback) {
+      if(this.socket) {
+          this.socket.off('partida_finalizada');
+          this.socket.on('partida_finalizada', callback);
+      }
   }
 
-  disparar(salaId, f, c) {
-    if (this.socket) this.socket.emit('realizar_disparo', { salaId, f, c });
-  }
-  
   getId() {
       return this.socket ? this.socket.id : null;
   }

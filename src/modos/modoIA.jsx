@@ -3,7 +3,7 @@ import Tablero from '../components/tablero';
 import Barcos from '../components/barcos';
 import { BARCOS, TABLEROS, ESTADOS_CASILLAS, POWER_UPS } from '../constants/configuracion'; 
 import Inventario from '../components/inventario';
-import { generarTabPowerUps, obtenerCeldasImpacto, procesarInventario, usarRadar, aplicarEscudo, usarTornado} from '../components/Powerups';
+import { generarTabPowerUps, obtenerCeldasImpacto, procesarInventario, usarRadar, aplicarEscudo, usarTornado, obtenerHoverPowerUp} from '../components/Powerups';
 
 const TAM = TABLEROS.ESTANDAR_TAM;
 
@@ -290,41 +290,63 @@ function ModoIA({alSalir, alElegir}) {
     if (!aciertoGlobalBarco) TurnoMio(false);
   };
 
-  const manejarHover = (f, c) => {
-    let nuevasCeldas = [];
-    if (fase === 'COLOCANDO') {
-      if (barcoSeleccionado) {
-        for (let i = 0; i < barcoSeleccionado.tam; i++) {
-          const filaD = orientacion === 'V' ? f + i : f;
-          const colD = orientacion === 'H' ? c + i : c;
-          if (filaD < TAM && colD < TAM) {
-            nuevasCeldas.push(`${filaD}-${colD}`);
-          } 
+  const manejarHover = (f, c, esTableroEnemigo) => {
+    try{
+      let nuevasCeldas = [];
+      if (fase === 'COLOCANDO') {
+        if (esTableroEnemigo) { 
+          setCeldasSombra([]); 
+          return; 
+        }
+        if (barcoSeleccionado) {
+          for (let i = 0; i < barcoSeleccionado.tam; i++) {
+            const filaD = orientacion === 'V' ? f + i : f;
+            const colD = orientacion === 'H' ? c + i : c;
+            if (filaD < TAM && colD < TAM) {
+              nuevasCeldas.push(`${filaD}-${colD}`);
+            } 
+          }
         }
       }
-    }
-    else if (fase === 'JUGANDO') {
-      if (turnoMio) {
-        if (powerUpSeleccionado?.id === 'tor' || powerUpSeleccionado?.id === 'rad' ) {
-          const mitad = Math.floor(TAM / 2);
-          const filaMin = f < mitad ? 0 : mitad;
-          const filaMax = f < mitad ? mitad : TAM;
-          const colMin  = c < mitad ? 0 : mitad;
-          const colMax  = c < mitad ? mitad : TAM;
-          for (let i = filaMin; i < filaMax; i++)
-            for (let j = colMin; j < colMax; j++)
-              nuevasCeldas.push(`${i}-${j}`);
-        }
-        else if (powerUpSeleccionado) {
-          nuevasCeldas = [...obtenerHoverPowerUp(f, c, powerUpSeleccionado, TAM)];
-        }
-        else {
-          nuevasCeldas = [`${f}-${c}`] // Solo la misma celda
+      else if (fase === 'JUGANDO') {
+        if (turnoMio) {
+          const esPowerUpDefensivo = powerUpSeleccionado?.id === 'esc' || powerUpSeleccionado?.id === 'mine';
+          if (esPowerUpDefensivo) {
+            if (esTableroEnemigo) { 
+              setCeldasSombra([]); 
+              return; 
+            }
+            nuevasCeldas = [...obtenerHoverPowerUp(f, c, powerUpSeleccionado, TAM)];
+          }
+          else{
+            if (!esTableroEnemigo) { 
+              setCeldasSombra([]); 
+              return; 
+            }
+            if (powerUpSeleccionado?.id === 'tor' || powerUpSeleccionado?.id === 'rad' ) {
+              const mitad = Math.floor(TAM / 2);
+              const filaMin = f < mitad ? 0 : mitad;
+              const filaMax = f < mitad ? mitad : TAM;
+              const colMin  = c < mitad ? 0 : mitad;
+              const colMax  = c < mitad ? mitad : TAM;
+              for (let i = filaMin; i < filaMax; i++)
+                for (let j = colMin; j < colMax; j++)
+                  nuevasCeldas.push(`${i}-${j}`);
+            }
+            else if (powerUpSeleccionado) {
+              nuevasCeldas = [...obtenerHoverPowerUp(f, c, powerUpSeleccionado, TAM)];
+            }
+            else {
+              nuevasCeldas = [`${f}-${c}`] //solo la misma celda
+            }
+          }
         }
       }
+      setCeldasSombra(nuevasCeldas);
+      return
+    } catch (err) {
+      console.error("Error Hover IA:", err);
     }
-    setCeldasSombra(nuevasCeldas);
-    return
   };
 
   // usar escudo
@@ -513,8 +535,8 @@ function ModoIA({alSalir, alElegir}) {
                   (powerUpSeleccionado?.id === 'mine' ? usarMinaEnMio : () => {}))
                 }
                 esIA={false} 
-                celdasSombra={fase === 'COLOCANDO' ? celdasSombra : []}
-                alEntrarCelda={manejarHover}
+                celdasSombra={(fase === 'COLOCANDO' || powerUpSeleccionado?.id === 'esc' || powerUpSeleccionado?.id === 'mine') ? celdasSombra : []}
+                alEntrarCelda={(f, c) => manejarHover(f, c, false)}
                 alSalirTablero={() => setCeldasSombra([])}
             />
           </div>
@@ -534,8 +556,8 @@ function ModoIA({alSalir, alElegir}) {
                 cuadricula={enemigos}
                 alDisparar={disparar}
                 esIA={true}
-                celdasSombra={fase === 'JUGANDO' ? celdasSombra : []}
-                alEntrarCelda={manejarHover}
+                celdasSombra={(fase === 'JUGANDO' && powerUpSeleccionado?.id !== 'esc' && powerUpSeleccionado?.id !== 'mine') ? celdasSombra : []}
+                alEntrarCelda={(f, c) => manejarHover(f, c, true)}
                 alSalirTablero={() => setCeldasSombra([])}/>
               <Inventario 
                 inventarioMio={inventarioMio}

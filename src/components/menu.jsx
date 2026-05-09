@@ -1,7 +1,48 @@
 import React from 'react';
 import IconoDefault from '../assets/IconoDefault.png'
+import { useState, useEffect } from 'react';
+import apiService from '../api/apiService';
+import socketService from '../api/socketService';
 
 function Menu({ alElegir, usuario }) {
+
+  const [buscando, setBuscando] = useState(false);
+  useEffect(() => {
+    socketService.conectar(); //conexion socket
+    socketService.unirseSalaPrivada();  //unirse a sala personal
+    //listener para encontrar partida online
+    socketService.onPartidaEncontrada((datos) => {
+        console.log("¡Rival detectado en el radar! Partida ID:", datos.partidaID);
+        //aqui diremos a App.jsx que cambie a la pantalla de COLOCAR_BARCOS
+        //alElegir('COLOCAR_BARCOS_ONLINE', datos.partidaID); 
+        setBuscando(false);
+    });
+
+    //apagamos listener
+    return () => {
+        socketService.socket?.off('partidaEncontrada');
+    };
+  }, []);
+
+  const iniciarBusqueda = async () => {
+    setBuscando(true);
+    try {
+        const nombreJugador = usuario?.user || usuario?.username; 
+        const res = await apiService.buscarPartida(nombreJugador);
+        
+        if (res.status === "InQueue") {
+            console.log("Desplegado en la zona de espera. Aguardando rival...");
+        } else if (res.status === "Encontrada") {
+            console.log("¡Rival encontrado instantáneamente!");
+            //setBuscando(false);
+            //alElegir('COLOCAR_BARCOS_ONLINE', res.partidaID);
+        }
+    } catch (error) {
+        console.error("Fallo de comunicaciones al buscar partida:", error);
+        setBuscando(false);
+    }
+  };
+
   return (
     <div style={{
       display: 'flex',

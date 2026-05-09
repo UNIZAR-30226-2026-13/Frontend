@@ -22,17 +22,18 @@ function Registro({alVolverInicio}){
       setCargando(true);
       setError('');
       try {
-        const res = await fetch('/api/usuario/registro', {
+        const res = await fetch('http://localhost:3000/api/usuario/registro', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username: usuario, email: email, password: contrasena }),
+          body: JSON.stringify({ user: usuario, email: email, password: contrasena }),
+          credentials: 'include'
         });
         if (res.status === 200) {
           alVolverInicio();
         } else if (res.status === 453) {
           setError('El usuario o email ya están en uso');
         } else {
-          setError('Error del servidor');
+          setError('Error del servidor al procesar el registro');
         }
       } catch {
         setError('Error de red');
