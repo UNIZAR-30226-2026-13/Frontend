@@ -59,7 +59,7 @@ function App() {
       
       {modo === 'MENU' && (<Menu alElegir={manejarModo} usuario={usuario}/>)}
 
-      {modo === 'IA' && (<JuegoIA key={idPartida} alSalir={() => setModo('MENU')} alElegir={manejarModo}/>)}
+      {modo === 'IA' && (<JuegoIA key={idPartida} alSalir={() => setModo('MENU')} alElegir={manejarModo} usuario={usuario}/>)}
 
       {modo === '1VS1' && (<JuegoLocal alSalir={() => setModo('MENU')} />)}
 

@@ -96,3 +96,12 @@ export const SKINS = {
   DORADO:  { id: 'dorado',  nombre: 'Dorado' },
   FANTASMA:{ id: 'fantasma',nombre: 'Fantasma' },
 };
+
+export const FOTOS = {
+  DEFAULT: { id: 'default', nombre: 'Default'  },
+  AZTECA: { id: 'azteca', nombre: 'Azteca'   },
+  CALAVERA: { id: 'calavera', nombre: 'Calavera' },
+  CASCO: { id: 'casco', nombre: 'Casco'    },
+  DRAGON: { id: 'dragon', nombre: 'Dragon'   },
+  ESPECTRO: { id: 'espectro', nombre: 'Espectro' },
+};

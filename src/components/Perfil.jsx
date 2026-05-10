@@ -1,10 +1,17 @@
 import { useState, useEffect } from "react" 
-import IconoDefault from '../assets/IconoDefault.png'
-import { SKINS } from '../constants/configuracion.js'
+import IconoDefaul from '../assets/IconoDefault.png'
+import { SKINS, FOTOS } from '../constants/configuracion.js'
 import dorado from '../assets/skinDorada.png'
 import militar from '../assets/skinMilitar.png'
 import defaul from '../assets/skinDefault.png'
 import fantasma from '../assets/skinFantasma.png'
+
+import azteca from '../assets/perfilAzteca.png'
+import calavera from '../assets/perfilCalavera.png'
+import casco from '../assets/perfilCasco.png'
+import dragon from '../assets/perfilDragon.png'
+import espectro from '../assets/perfilFantasma.png'
+
 
 const PREVIEW_SKINS = {
   default:  { img: defaul, nombre: 'Deafult'    },
@@ -13,8 +20,35 @@ const PREVIEW_SKINS = {
   fantasma: { img: fantasma, nombre: 'Fantasma' },
 };
 
+const FOTOS_PERFIL = {
+  default:  { img: IconoDefaul, nombre: 'Default'},
+  azteca:  { img: azteca, nombre: 'Azteca'},
+  calavera:  { img: calavera, nombre: 'Calavera'},
+  casco: { img: casco, nombre: 'Casco'},
+  dragon: { img: dragon, nombre: 'Dragon'},
+  espectro: { img: espectro, nombre: 'Espectro'},
+};
+
+const guardarConfig = async (campo, valor, usuario) => {
+  const pass = localStorage.getItem('_pass');
+  await fetch('/api/usuario/configuracion', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ newData: { 
+      username: usuario.username, 
+      email: usuario.email,      
+      password: pass, 
+      barco: usuario.barco || 'default',
+      perfil: usuario.perfil || 'default',
+      [campo]: valor 
+    }})
+  });
+};
+
 function Perfil({ alSalir, usuario, actualizarUsuario }){
     const [pantalla, setPantalla] = useState('PERFIL');
+    const [fotoActual, setFotoActual] = useState(usuario?.perfil || 'default');
+    const imgFoto = FOTOS_PERFIL[fotoActual]?.img || IconoDefault;
 
     return(
         <div style={{
@@ -57,14 +91,14 @@ function Perfil({ alSalir, usuario, actualizarUsuario }){
                 overflow: 'hidden'
               }}>
                 <img 
-                  src={IconoDefault} 
+                  src={imgFoto} 
                   style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
                />
               </div>
               <span style={{ fontWeight: 'bold', fontSize: '14px' }}>{usuario?.username || 'Jugador'}</span>
             </div>
 
-            {['PERFIL', 'SKINS'].map(pant => (        // array de pantallas
+            {['PERFIL', 'SKINS', 'FOTO'].map(pant => (        // array de pantallas
               <div
                 key={pant}
                 onClick={() => setPantalla(pant)}
@@ -105,15 +139,16 @@ function Perfil({ alSalir, usuario, actualizarUsuario }){
             overflowY: 'auto',
             height: '100vh'
           }}>
-            {pantalla === 'PERFIL' && <PantallaPerfil usuario={usuario} actualizarUsuario={actualizarUsuario} />}
-            {pantalla === 'SKINS' && <PantallaSkins usuario={usuario} />}
+            {pantalla === 'PERFIL' && <PantallaPerfil usuario={usuario} actualizarUsuario={actualizarUsuario} imgFoto={imgFoto}/>}
+            {pantalla === 'SKINS' && <PantallaSkins usuario={usuario} actualizarUsuario={actualizarUsuario}/>}
+            {pantalla === 'FOTO'   && <PantallaFoto fotoActual={fotoActual} setFotoActual={setFotoActual} imgFoto={imgFoto} usuario={usuario} actualizarUsuario={actualizarUsuario}/>}
 
         </div>
       </div>
     )
 }
 
-function PantallaPerfil({ usuario, actualizarUsuario }) {
+function PantallaPerfil({ usuario, actualizarUsuario ,imgFoto}) {
   const [editando, setEditando] = useState(false);
   const [nuevoUsername, setNuevoUsername] = useState(usuario?.username || '');
   const [nuevoEmail, setNuevoEmail] = useState(usuario?.email || '');
@@ -194,7 +229,7 @@ function PantallaPerfil({ usuario, actualizarUsuario }) {
             overflow: 'hidden'
           }}>
             <img 
-              src={IconoDefault} 
+              src={imgFoto} 
               style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
               alt="Perfil" 
             />
@@ -308,27 +343,24 @@ function PantallaPerfil({ usuario, actualizarUsuario }) {
   );
 }
 
-function PantallaSkins({}){
-  const [skinActual, setSkinActual] = useState(localStorage.getItem('skin') || 'default');
+function PantallaSkins({ usuario, actualizarUsuario}){
+  const [skinActual, setSkinActual] = useState(usuario?.barco || 'default');
 
-  const elegirSkin = (id) => {
+  /*const elegirSkin = (id) => {
     localStorage.setItem('skin',id);
     setSkinActual(id);
-  };
+  };*/
 
-  /*const elegirSkin = async (id) => {
-    localStorage.setItem('skin', id);
+  const elegirSkin = async (id) => {
     setSkinActual(id);
     try {
-      await fetch('/api/usuario/configuracion', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ skin: id })
-      });
+      await guardarConfig('barco', id, usuario);
+      // Actualizar estado global para que el juego use la skin nueva
+      actualizarUsuario({ ...usuario, barco: id });
     } catch (e) {
       console.error('Error guardando skin:', e);
     }
-  };*/
+  };
 
   return(
     <div style={{ 
@@ -350,7 +382,6 @@ function PantallaSkins({}){
         flexWrap: 'wrap'
        }}>
         {Object.values(SKINS).map(skin => {
-          const preview = PREVIEW_SKINS[skin.id];
           const skinSeleccionada = skinActual === skin.id;
 
           return(
@@ -371,8 +402,7 @@ function PantallaSkins({}){
               }}
             >
               <img
-                src={preview.img}
-                alt={skin.nombre}
+                src={PREVIEW_SKINS[skin.id]?.img}
                 style={{ width: '100px', height: '100px', objectFit: 'cover', borderRadius: '50%' }}
               />
               <p style={{ margin: '10px 0 4px 0', fontWeight: 'bold', fontSize: '15px' }}>
@@ -390,6 +420,84 @@ function PantallaSkins({}){
             </div>
           );
           
+        })}
+      </div>
+    </div>
+  );
+}
+
+function PantallaFoto({ fotoActual, setFotoActual , imgFoto, actualizarUsuario, usuario}) {
+  /*const elegirFoto = (id) => {
+    localStorage.setItem('fotoPerfil', id);
+    setFotoActual(id);
+    // TODO: llamar a API cuando esté implementada
+  };*/
+  const elegirFoto = async (id) => {
+    setFotoActual(id);
+    try {
+      await guardarConfig('perfil', id, usuario);
+      // Actualizar estado global
+      actualizarUsuario({ ...usuario, perfil: id });
+    } catch (e) {
+      console.error('Error guardando foto:', e);
+    }
+  };
+ 
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '40px' }}>
+      <div>
+        <h2 style={{ margin: '0 0 6px 0', fontSize: '48px' }}>
+          Foto de perfil
+        </h2>
+        <p style={{ margin: 0, color: '#b8b8b8', fontSize: '18px' }}>
+          Elige tu foto de perfil
+        </p>
+      </div>
+      <div style={{
+        display: 'flex',
+        gap: '40px',
+        flexWrap: 'wrap'
+      }}>
+        {Object.values(FOTOS).map(foto => {
+          const seleccionada = fotoActual === foto.id;
+
+          return (
+            <div
+              key={foto.id}
+              onClick={() => elegirFoto(foto.id)}
+              style={{
+                height: '140px',
+                wwidth: '140px',
+                padding: '16px',
+                borderRadius: '12px',
+                cursor: 'pointer',
+                border: seleccionada ? '2px solid #3b82f6' : '2px solid #444',
+                background: seleccionada ? '#1e2a3a' : '#222',
+                boxShadow: seleccionada ? '0 0 15px rgba(59,130,246,0.4)' : 'none',
+                transform: seleccionada ? 'scale(1.05)' : 'scale(1)',
+                transition: 'all 0.2s',
+                textAlign: 'center',
+                minWidth: '140px',
+              }}
+            >
+              <img 
+                src={FOTOS_PERFIL[foto.id]?.img}
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+              />
+              <p style={{ margin: '10px 0 4px 0', fontWeight: 'bold', fontSize: '15px' }}>
+                {foto.nombre}
+              </p>
+              {seleccionada && (
+                <span style={{
+                  fontSize: '11px', fontWeight: 'bold', color: '#3b82f6',
+                  background: 'rgba(59,130,246,0.15)', padding: '2px 10px',
+                  borderRadius: '20px', border: '1px solid #3b82f6'
+                }}>
+                  ACTIVA
+                </span>
+              )}
+            </div>
+          );
         })}
       </div>
     </div>

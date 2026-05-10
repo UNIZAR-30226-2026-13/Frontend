@@ -72,7 +72,7 @@ const obtenerCeldasBarcoCompleto = (tablero, f, c) => {
   return celdas;
 };
 
-function ModoIA({alSalir, alElegir}) {
+function ModoIA({alSalir, alElegir, usuario}) {
   const [mios, Mios] = useState(generarTabVacio());
   const [enemigos, Enemigos] = useState(generarTabVacio());
   const [turnoMio, TurnoMio] = useState(true);
@@ -528,6 +528,7 @@ function ModoIA({alSalir, alElegir}) {
             powerUpSeleccionado?.id === 'mine' ? '💣 ELIGE UNA CELDA PARA MINAR' : 'TU FLOTA'}
           </h4>
             <Tablero 
+                skin={usuario?.barco || 'default'}
                 cuadricula={mios} 
                 alDisparar={
                   fase === 'COLOCANDO' ? colocarBarco :
@@ -553,6 +554,7 @@ function ModoIA({alSalir, alElegir}) {
                 {textoOceano()}
               </h4>              
               <Tablero
+                skin={usuario?.barco || 'default'}
                 cuadricula={enemigos}
                 alDisparar={disparar}
                 esIA={true}

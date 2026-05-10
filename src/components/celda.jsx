@@ -57,14 +57,14 @@ const IMAGENES_V = {
   fantasma: { por: por_fantasma_v, aco: aco_fantasma_v, sub: sub_fantasma_v, fra: fra_fantasma_v },
 };
 
-function Celda({ valor, alClickar, esIA, estaEnSombra, alEntrar }) {
+function Celda({ valor, alClickar, esIA, estaEnSombra, alEntrar, skin }) {
   const tipo = valor?.tipo ?? valor;
   const esBarcoObj = typeof valor === 'object' && (
     valor?.tipo === ESTADOS_CASILLAS.BARCO ||
     valor?.tipo === ESTADOS_CASILLAS.TOCADO ||
     valor?.tipo === ESTADOS_CASILLAS.HUNDIDO
   );
-  const skinActual = localStorage.getItem('skin') || 'militar';
+  const skinActual = skin || 'default';
 
   const obtenerOverlay = () => {
     if (estaEnSombra)                       return 'rgba(59, 130, 246, 0.4)';

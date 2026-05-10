@@ -1,7 +1,7 @@
 import Celda from './celda';
 import { useState } from 'react';
 
-function Tablero({ cuadricula, alDisparar, esIA, powerUpSeleccionado, celdasSombra = [], alEntrarCelda, alSalirTablero }) {
+function Tablero({ cuadricula, alDisparar, esIA, powerUpSeleccionado, celdasSombra = [], alEntrarCelda, alSalirTablero,skin }) {
   const [hoveredPos, setHoveredPos] = useState(null);
 
   const debeResaltar = (i, j) => {
@@ -43,6 +43,7 @@ function Tablero({ cuadricula, alDisparar, esIA, powerUpSeleccionado, celdasSomb
           <Celda 
             key={`${i}-${j}`} 
             valor={valor} 
+            skin={skin}
             esIA={esIA}
             estaEnSombra={celdasSombra.includes(`${i}-${j}`)} 
             alClickar={() => alDisparar(i, j)} 

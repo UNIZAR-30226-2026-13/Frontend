@@ -3,8 +3,33 @@ import IconoDefault from '../assets/IconoDefault.png'
 import { useState, useEffect } from 'react';
 import apiService from '../api/apiService';
 import socketService from '../api/socketService';
+import azteca from '../assets/perfilAzteca.png'
+import calavera from '../assets/perfilCalavera.png'
+import casco from '../assets/perfilCasco.png'
+import dragon from '../assets/perfilDragon.png'
+import espectro from '../assets/perfilFantasma.png'
+ 
+const FOTOS_PERFIL = {
+  default:  IconoDefault,
+  azteca:   azteca,
+  calavera: calavera,
+  casco:    casco,
+  dragon:   dragon,
+  espectro: espectro,
+};
 
 function Menu({ alElegir, usuario }) {
+
+  const [imgFoto, setImgFoto] = useState(() => {
+    const id = usuario?.perfil || 'default';
+    return FOTOS_PERFIL[id] || IconoDefault;
+  });
+ 
+  //actualiza foto cuando vuelves al menu
+  useEffect(() => {
+    const id = usuario?.perfil || 'default';
+    setImgFoto(FOTOS_PERFIL[id] || IconoDefault);
+  }, []);
 
   const [buscando, setBuscando] = useState(false);
   useEffect(() => {
@@ -85,7 +110,7 @@ function Menu({ alElegir, usuario }) {
           overflow: 'hidden'
         }}>
           <img 
-            src={IconoDefault} 
+            src={imgFoto} 
             style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
           /> {/*foto aqui*/}       
         </div>
