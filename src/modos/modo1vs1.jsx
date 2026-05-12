@@ -8,6 +8,9 @@ import socketService from '../api/socketService';
 import { BARCOS, TABLEROS, ESTADOS_CASILLAS } from '../constants/configuracion'; 
 import Tablero from '../components/tablero';
 import Barcos from '../components/barcos';
+import { POWER_UPS } from '../constants/configuracion'; 
+import Inventario from '../components/inventario';
+import { generarTabPowerUps, obtenerCeldasImpacto, procesarInventario, usarRadar, aplicarEscudo, usarTornado, obtenerHoverPowerUp} from '../components/Powerups';
 
 const TAM = TABLEROS.ESTANDAR_TAM;
 
@@ -70,7 +73,7 @@ const obtenerCeldasBarcoCompleto = (tablero, f, c) => {
   return celdas;
 };
 
-function Modo1vs1({ salaId, alSalir }) {
+function Modo1vs1({ salaId, alSalir, usuario }) {
   //const [mios, setMios] = useState(generarTabVacio());
   //const [enemigos, setEnemigos] = useState(generarTabVacio());
   //const [miTurno, setMiTurno] = useState(false);
@@ -91,6 +94,15 @@ function Modo1vs1({ salaId, alSalir }) {
   const [orientacion, setOrientacion] = useState('H');
   const [barcosColocados, setBarcosColocados] = useState([]);
   const [celdasSombra, setCeldasSombra] = useState([]);
+
+  //powerups
+  const [powerUpsMios, setPUMios] = useState(() => generarTabPowerUps(TAM, 5, Object.keys(POWER_UPS)));
+  const [powerUpsEnemigos, setPUEnemigos] = useState(() => generarTabPowerUps(TAM, 5, Object.keys(POWER_UPS)));
+  const [powerUpSeleccionado, setPowerUpSeleccionado] = useState(null);
+  const [inventarioMio, setInventarioMio] = useState([]); 
+  const [resultadoRadar, setResultadoRadar] = useState(null);
+  const [mensajeMina, setMensajeMina] = useState(null);
+  const [turnosPenalizadosEnemigo, setTurnosPenalizadosEnemigo] = useState(0);
 
   //calculo si ya se han puesto todos los barcos
   const totalBarcos = Object.values(BARCOS).reduce((acc, b) => acc + b.cantidad, 0);
@@ -194,69 +206,155 @@ function Modo1vs1({ salaId, alSalir }) {
 
   //logca de colocacion
   //hover para mostrar donde se colocaria el barco
-  const manejarHover = (f, c) => {
-    if (fase !== 'COLOCANDO' || !barcoSeleccionado) {
-      setCeldasSombra([]);
-      return;
-    }
-
-    const nuevasCeldas = [];
-    for (let i = 0; i < barcoSeleccionado.tam; i++) {
-      const filaD = orientacion === 'V' ? f + i : f;
-      const colD = orientacion === 'H' ? c + i : c;
-
-      if (filaD < TAM && colD < TAM) {
-        nuevasCeldas.push(`${filaD}-${colD}`);
+  const manejarHover = (f, c, esTableroEnemigo) => {
+    try {
+      let nuevasCeldas = [];
+      if (fase === 'COLOCANDO') {
+        if (esTableroEnemigo) { setCeldasSombra([]); return; }
+        if (barcoSeleccionado) {
+          for (let i = 0; i < barcoSeleccionado.tam; i++) {
+            const filaD = orientacion === 'V' ? f + i : f;
+            const colD = orientacion === 'H' ? c + i : c;
+            if (filaD < TAM && colD < TAM) nuevasCeldas.push(`${filaD}-${colD}`);
+          }
+        }
       }
-    }
-    setCeldasSombra(nuevasCeldas);
+      else if (fase === 'JUGANDO') {
+        if (miTurno) {
+          const esPowerUpDefensivo = powerUpSeleccionado?.id === 'esc' || powerUpSeleccionado?.id === 'mine';
+          if (esPowerUpDefensivo) {
+            if (esTableroEnemigo) { setCeldasSombra([]); return; }
+            nuevasCeldas = [...obtenerHoverPowerUp(f, c, powerUpSeleccionado, TAM)];
+          } else {
+            if (!esTableroEnemigo) { setCeldasSombra([]); return; }
+            if (powerUpSeleccionado?.id === 'tor' || powerUpSeleccionado?.id === 'rad' ) {
+              const mitad = Math.floor(TAM / 2);
+              const filaMin = f < mitad ? 0 : mitad;
+              const filaMax = f < mitad ? mitad : TAM;
+              const colMin  = c < mitad ? 0 : mitad;
+              const colMax  = c < mitad ? mitad : TAM;
+              for (let i = filaMin; i < filaMax; i++)
+                for (let j = colMin; j < colMax; j++) nuevasCeldas.push(`${i}-${j}`);
+            }
+            else if (powerUpSeleccionado) {
+              nuevasCeldas = [...obtenerHoverPowerUp(f, c, powerUpSeleccionado, TAM)];
+            } else {
+              nuevasCeldas = [`${f}-${c}`];
+            }
+          }
+        }
+      }
+      setCeldasSombra(nuevasCeldas);
+    } catch (err) { console.error("Error Hover:", err); }
   };
 
   //simulador MOCK
   useEffect(() => {
     if (fase === 'JUGANDO' && !miTurno && !fin) {
+      if (turnosPenalizadosEnemigo > 0) {
+        setTurnosPenalizadosEnemigo(p => p - 1);
+        setMiTurno(true);
+        return;
+      }
       const timer = setTimeout(() => {
-        let rf, rc, tipoMio;
+        let rf, rc;
         
         do {
           rf = Math.floor(Math.random() * TAM);
           rc = Math.floor(Math.random() * TAM);
-          const celda = mios[rf][rc];
-          tipoMio = celda?.tipo ?? celda;
-        } while (tipoMio === ESTADOS_CASILLAS.TOCADO || tipoMio === ESTADOS_CASILLAS.AGUA || tipoMio === ESTADOS_CASILLAS.HUNDIDO);
+        } while (
+          mios[rf][rc] === ESTADOS_CASILLAS.TOCADO || mios[rf][rc] === ESTADOS_CASILLAS.AGUA ||
+          mios[rf][rc]?.tipo === ESTADOS_CASILLAS.TOCADO || mios[rf][rc]?.tipo === ESTADOS_CASILLAS.AGUA || 
+          mios[rf][rc]?.tipo === ESTADOS_CASILLAS.HUNDIDO
+        );
 
-        const nuevoMios = mios.map(fila => [...fila]);
-        const esBarco = tipoMio === ESTADOS_CASILLAS.BARCO;
+        const nuevo = mios.map(fila => [...fila]);
+        const valorCelda = nuevo[rf][rc];
+        const tipoActual = valorCelda?.tipo ?? valorCelda;
 
-        if (esBarco) {
-          //acierta
-          nuevoMios[rf][rc] = { ...nuevoMios[rf][rc], tipo: ESTADOS_CASILLAS.TOCADO };
-          
-          //comprueba hundido
-          const celdasMias = obtenerCeldasBarcoCompleto(nuevoMios, rf, rc);
-          const miBarcoHundido = celdasMias.every(([bf, bc]) => {
-              const t = nuevoMios[bf][bc]?.tipo ?? nuevoMios[bf][bc];
-              return t === ESTADOS_CASILLAS.TOCADO || t === ESTADOS_CASILLAS.HUNDIDO;
-          });
-          
-          if (miBarcoHundido) {
-              celdasMias.forEach(([bf, bc]) => {
-                  nuevoMios[bf][bc] = { ...nuevoMios[bf][bc], tipo: ESTADOS_CASILLAS.HUNDIDO };
-              });
-          }
-          setMios(nuevoMios);
-          //repite turno
-        } else {
-          //falla
-          nuevoMios[rf][rc] = ESTADOS_CASILLAS.AGUA;
-          setMios(nuevoMios);
+        if (tipoActual === ESTADOS_CASILLAS.MINA) {
+          nuevo[rf][rc] = ESTADOS_CASILLAS.AGUA;
+          setMios(nuevo);
+          setTurnosPenalizadosEnemigo(1);
+          setMensajeMina('enemigo'); 
           setMiTurno(true);
+          return;
+        }
+        if (tipoActual === ESTADOS_CASILLAS.ESCUDO) {
+          nuevo[rf][rc] = { ...valorCelda, tipo: ESTADOS_CASILLAS.BARCO }; 
+          setMios(nuevo);
+          setMiTurno(true); 
+        } else {
+          const acierto = tipoActual === ESTADOS_CASILLAS.BARCO;
+          if (acierto) {
+            nuevo[rf][rc] = { ...valorCelda, tipo: ESTADOS_CASILLAS.TOCADO };
+            const celdasMias = obtenerCeldasBarcoCompleto(nuevo, rf, rc);
+            const miBarcoHundido = celdasMias.every(([bf, bc]) => {
+                const t = nuevo[bf][bc]?.tipo ?? nuevo[bf][bc];
+                return t === ESTADOS_CASILLAS.TOCADO || t === ESTADOS_CASILLAS.HUNDIDO;
+            });
+            if (miBarcoHundido) {
+                celdasMias.forEach(([bf, bc]) => {
+                    nuevo[bf][bc] = { ...nuevo[bf][bc], tipo: ESTADOS_CASILLAS.HUNDIDO };
+                });
+            }
+          } else {
+            nuevo[rf][rc] = ESTADOS_CASILLAS.AGUA;
+          }
+          setMios(nuevo);
+          if (!acierto) setMiTurno(true);
         }
       }, 1500);
-
+      
       return () => clearTimeout(timer);
     }
-  }, [miTurno, mios, fin, fase]);
+  }, [miTurno, mios, fin, fase, turnosPenalizadosEnemigo]);
+
+  const usarEscudoEnMio = (f, c) => {
+    if (powerUpSeleccionado?.id !== 'esc') return;
+    const nuevoTablero = aplicarEscudo(f, c, mios);
+    if (nuevoTablero === null) { alert('El escudo solo se puede colocar en barco'); return; }
+    setMios(nuevoTablero);
+    setInventarioMio(procesarInventario(inventarioMio, powerUpSeleccionado, []));
+    setPowerUpSeleccionado(null);
+  };
+
+  const usarMinaEnMio = (f, c) => {
+    if (powerUpSeleccionado?.id !== 'mine') return;
+    if (mios[f][c] !== ESTADOS_CASILLAS.VACIO) { alert('La mina solo en agua'); return; }
+    const nuevoTablero = mios.map(fila => [...fila]);
+    nuevoTablero[f][c] = ESTADOS_CASILLAS.MINA;
+    setMios(nuevoTablero);
+    setInventarioMio(procesarInventario(inventarioMio, powerUpSeleccionado, []));
+    setPowerUpSeleccionado(null);
+  };
+
+  const asignarPowerUps = () => {
+    const nuevosPUsGanados = [];
+    const powerupsMios = powerUpsMios.map(f => [...f]);
+    for(let f=0; f<TAM; f++) {
+      for(let c=0; c<TAM; c++) {
+        const tipoCelda = mios[f][c]?.tipo ?? mios[f][c];
+        if (tipoCelda === ESTADOS_CASILLAS.BARCO && powerupsMios[f][c]){
+          nuevosPUsGanados.push(POWER_UPS[powerupsMios[f][c]]);
+          powerupsMios[f][c] = null; 
+        }
+      }
+    }
+    setInventarioMio(nuevosPUsGanados);
+    setPUMios(powerupsMios);
+  };
+
+  const textoOceano = () => {
+    if (!powerUpSeleccionado) return 'OCÉANO ENEMIGO';
+    switch (powerUpSeleccionado.id) {
+      case 'deflagrador': return '💥 DISPARO DEFLAGRADOR';
+      case 'doble':       return '🎯 DISPARO DOBLE';
+      case 'tor':         return '🌪️ TORNADO';
+      case 'rad':         return '📡 SELECCIONA CUADRANTE';
+      default:            return 'OCÉANO ENEMIGO';
+    }
+  };
 
   //click para colocar el barco
   const colocarBarco = (f, c) => {
@@ -301,6 +399,7 @@ function Modo1vs1({ salaId, alSalir }) {
   const confirmarTablero = () => {
     setFase('ESPERANDO_LISTO_RIVAL');
     setEnemigos(generarTableroEnemigoMock());
+    asignarPowerUps();
     //MOCK
     //socketService.enviarTablero(salaId, mios);
   };
@@ -313,43 +412,84 @@ function Modo1vs1({ salaId, alSalir }) {
 
   //MOCK
   const dispararMultijugador = (f, c) => {
-    if (!miTurno || fase !== 'JUGANDO' || fin) return;
-    
-    const celdaObjetivo = enemigos[f][c];
-    const tipoEnemigo = celdaObjetivo?.tipo ?? celdaObjetivo;
+    const tipoEnemigo = enemigos[f][c]?.tipo ?? enemigos[f][c];
+    if (fase !== 'JUGANDO' || !miTurno || fin) return;
+    if (tipoEnemigo === ESTADOS_CASILLAS.TOCADO || tipoEnemigo === ESTADOS_CASILLAS.AGUA || tipoEnemigo === ESTADOS_CASILLAS.HUNDIDO) return;
 
-    if (tipoEnemigo === ESTADOS_CASILLAS.TOCADO || 
-        tipoEnemigo === ESTADOS_CASILLAS.AGUA || 
-        tipoEnemigo === ESTADOS_CASILLAS.HUNDIDO) {
-        return;
+    if (powerUpSeleccionado?.id === 'rad') {
+      const resultado = usarRadar(f, c, enemigos, TAM);
+      setResultadoRadar(resultado);
+      setInventarioMio(procesarInventario(inventarioMio, powerUpSeleccionado, []));
+      setPowerUpSeleccionado(null); return; 
+    }
+
+    if (powerUpSeleccionado?.id === 'tor') {
+      const celdasImpacto = usarTornado(f, c, enemigos, TAM);
+      const nuevoEnemigos = enemigos.map(fila => [...fila]);
+      const copiaPUEnemigos = powerUpsEnemigos.map(fila => [...fila]);
+      let acierto = false; const idsEncontrados = [];
+
+      celdasImpacto.forEach(([tf, tc]) => {
+        const celdaTor = nuevoEnemigos[tf][tc];
+        const tipoTor = celdaTor?.tipo ?? celdaTor;
+        const esBarco = tipoTor === ESTADOS_CASILLAS.BARCO;
+        nuevoEnemigos[tf][tc] = esBarco ? (typeof celdaTor === 'object' ? { ...celdaTor, tipo: ESTADOS_CASILLAS.TOCADO } : ESTADOS_CASILLAS.TOCADO) : ESTADOS_CASILLAS.AGUA;
+        if (esBarco) {
+          acierto = true;
+          const celdasDelBarco = obtenerCeldasBarcoCompleto(nuevoEnemigos, tf, tc);
+          const hundido = celdasDelBarco.every(([bf, bc]) => {
+            const t = nuevoEnemigos[bf][bc]?.tipo ?? nuevoEnemigos[bf][bc];
+            return t === ESTADOS_CASILLAS.TOCADO || t === ESTADOS_CASILLAS.HUNDIDO;
+          });
+          if (hundido) celdasDelBarco.forEach(([bf, bc]) => {
+            const cel = nuevoEnemigos[bf][bc];
+            nuevoEnemigos[bf][bc] = typeof cel === 'object' ? { ...cel, tipo: ESTADOS_CASILLAS.HUNDIDO } : ESTADOS_CASILLAS.HUNDIDO;
+          });
+        }
+        const idPU = copiaPUEnemigos[tf][tc];
+        if (idPU) { idsEncontrados.push(idPU); copiaPUEnemigos[tf][tc] = null; }
+      });
+
+      setPowerUpSeleccionado(null); setEnemigos(nuevoEnemigos); setPUEnemigos(copiaPUEnemigos);
+      setInventarioMio(procesarInventario(inventarioMio, powerUpSeleccionado, idsEncontrados));
+      if (!acierto) setMiTurno(false);
+      return;
     }
 
     const nuevoEnemigos = enemigos.map(fila => [...fila]);
-    const esBarco = tipoEnemigo === ESTADOS_CASILLAS.BARCO;
+    const copiaPUEnemigos = powerUpsEnemigos.map(fila => [...fila]);
+    let aciertoGlobalBarco = false; const idsEncontrados = [];
+    const celdasAfectadas = obtenerCeldasImpacto(f, c, powerUpSeleccionado?.id, TAM);
 
-    if (esBarco) {
-      nuevoEnemigos[f][c] = { ...celdaObjetivo, tipo: ESTADOS_CASILLAS.TOCADO };
+    celdasAfectadas.forEach(([df, dc]) => { 
+      if (nuevoEnemigos[df][dc] === ESTADOS_CASILLAS.TOCADO || nuevoEnemigos[df][dc] === ESTADOS_CASILLAS.AGUA) return;
+      const celdaEnemiga = nuevoEnemigos[df][dc];
+      const tipoCeldaEnemiga = celdaEnemiga?.tipo ?? celdaEnemiga;
+      const aciertoBarco = tipoCeldaEnemiga === ESTADOS_CASILLAS.BARCO;
+      nuevoEnemigos[df][dc] = aciertoBarco ? (typeof celdaEnemiga === 'object' ? { ...celdaEnemiga, tipo: ESTADOS_CASILLAS.TOCADO } : ESTADOS_CASILLAS.TOCADO): ESTADOS_CASILLAS.AGUA;
       
-      const celdasDelBarco = obtenerCeldasBarcoCompleto(nuevoEnemigos, f, c);
-      const estaHundido = celdasDelBarco.every(([bf, bc]) => {
-        const t = nuevoEnemigos[bf][bc]?.tipo ?? nuevoEnemigos[bf][bc];
-        return t === ESTADOS_CASILLAS.TOCADO || t === ESTADOS_CASILLAS.HUNDIDO;
-      });
-
-      if (estaHundido) {
-        celdasDelBarco.forEach(([bf, bc]) => {
-          const celda = nuevoEnemigos[bf][bc];
-          nuevoEnemigos[bf][bc] = { ...celda, tipo: ESTADOS_CASILLAS.HUNDIDO };
-        });
+      if (aciertoBarco) {
+        aciertoGlobalBarco = true; 
+        const celdasDelBarco = obtenerCeldasBarcoCompleto(nuevoEnemigos, df, dc);
+        const estaHundido = celdasDelBarco.every(([bf, bc]) => {
+          const t = nuevoEnemigos[bf][bc]?.tipo ?? nuevoEnemigos[bf][bc];
+          return t === ESTADOS_CASILLAS.TOCADO || t === ESTADOS_CASILLAS.HUNDIDO;
+        }); 
+        if (estaHundido) {
+          celdasDelBarco.forEach(([bf, bc]) => {
+            const c = nuevoEnemigos[bf][bc];
+            nuevoEnemigos[bf][bc] = typeof c === 'object' ? { ...c, tipo: ESTADOS_CASILLAS.HUNDIDO } : ESTADOS_CASILLAS.HUNDIDO;
+          });
+        }
       }
+      const idEncontrado = copiaPUEnemigos[df][dc];
+      if (idEncontrado) { idsEncontrados.push(idEncontrado); copiaPUEnemigos[df][dc] = null; }
+    });
 
-      setEnemigos(nuevoEnemigos);
-      //mantengo turno
-    } else {
-      nuevoEnemigos[f][c] = ESTADOS_CASILLAS.AGUA;
-      setEnemigos(nuevoEnemigos);
-      setMiTurno(false);
-    }
+    if (powerUpSeleccionado?.id === 'doble') aciertoGlobalBarco = true; 
+    setPowerUpSeleccionado(null); setEnemigos(nuevoEnemigos); setPUEnemigos(copiaPUEnemigos);
+    setInventarioMio(procesarInventario(inventarioMio, powerUpSeleccionado, idsEncontrados));
+    if (!aciertoGlobalBarco) setMiTurno(false);
   };
 
   /*return (
@@ -487,15 +627,16 @@ function Modo1vs1({ salaId, alSalir }) {
               justifyContent: 'center' }}>
               <h4 style={{ 
                 margin: '0 0 10px 0', 
-                color: '#aaa' 
-                }}>POSICIONA TUS NAVES</h4>
+                color: powerUpSeleccionado?.id === 'esc' || powerUpSeleccionado?.id === 'mine' ? '#f59e0b' : '#aaa'
+                }}>{powerUpSeleccionado?.id === 'esc' ? '🛡️ ELIGE UNA CELDA PARA ESCUDAR' : powerUpSeleccionado?.id === 'mine' ? '💣 ELIGE UNA CELDA PARA MINAR' : 'TU FLOTA'}
+              </h4>
               <Tablero 
-                skin={'default'}
+                skin={usuario?.barco || 'default'}
                 cuadricula={mios} 
-                alDisparar={colocarBarco} 
+                alDisparar={fase === 'COLOCANDO' ? colocarBarco : (powerUpSeleccionado?.id === 'esc' ? usarEscudoEnMio : (powerUpSeleccionado?.id === 'mine' ? usarMinaEnMio : () => {}))}
                 esIA={false} 
-                celdasSombra={celdasSombra}
-                alEntrarCelda={manejarHover}
+                celdasSombra={(fase === 'COLOCANDO' || powerUpSeleccionado?.id === 'esc' || powerUpSeleccionado?.id === 'mine') ? celdasSombra : []}
+                alEntrarCelda={(f, c) => manejarHover(f, c, false)}
                 alSalirTablero={() => setCeldasSombra([])}
               />
             </section>
@@ -524,12 +665,14 @@ function Modo1vs1({ salaId, alSalir }) {
             alignItems: 'center', 
             justifyContent: 'center', 
             gap: '50px', 
-            padding: '20px'
+            padding: '20px',
+            overflowY: 'auto',
+            flexWrap: 'wrap'
           }}>
             <div style={{ 
               textAlign: 'center', 
               opacity: miTurno ? 0.7 : 1, 
-              transform: miTurno ? 'scale(0.95)' : 'scale(1)', 
+              transform: 'scale(0.85)', 
               transition: 'all 0.3s' }}>
               <h4 style={{ 
                 margin: '0 0 10px 0', 
@@ -541,13 +684,61 @@ function Modo1vs1({ salaId, alSalir }) {
               textAlign: 'center', 
               boxShadow: miTurno ? '0 0 20px #3b82f6' : 'none', 
               borderRadius: '8px', 
-              transform: miTurno ? 'scale(1.05)' : 'scale(1)', 
+              transform: 'scale(0.85)', 
               transition: 'all 0.3s' }}>
-              <h4 style={{ margin: '0 0 10px 0', color: '#3b82f6' }}>OCÉANO ENEMIGO</h4>
-              <Tablero skin={'default'} cuadricula={enemigos} alDisparar={dispararMultijugador} esIA={true} />
+              <h4 style={{ 
+                margin: '0 0 10px 0', 
+                color: powerUpSeleccionado ? '#f59e0b' : '#3b82f6'
+                }}>{textoOceano()}
+              </h4>
+              <Tablero 
+                skin={usuario?.barco || 'default'}
+                cuadricula={enemigos} 
+                alDisparar={dispararMultijugador} 
+                esIA={true} 
+                celdasSombra={(fase === 'JUGANDO' && powerUpSeleccionado?.id !== 'esc' && powerUpSeleccionado?.id !== 'mine') ? celdasSombra : []}
+                alEntrarCelda={(f, c) => manejarHover(f, c, true)} alSalirTablero={() => setCeldasSombra([])}
+              />
+              <div style={{ display: 'flex', justifyContent: 'center', width: '100%', marginTop: '15px' }}>
+                <Inventario 
+                  inventarioMio={inventarioMio}
+                  powerUpSeleccionado={powerUpSeleccionado}
+                  alSeleccionar={setPowerUpSeleccionado}
+                />
+              </div>
             </div>
           </section>
         )}
+
+        {/*radar mensaje*/}
+            {resultadoRadar && (
+              <div style={{
+                position: 'absolute', top: '30px', right: '30px', background: '#1e3a5f', border: '2px solid #3b82f6',
+                borderRadius: '10px', padding: '15px 20px', color: 'white', textAlign: 'center', zIndex: 5, minWidth: '180px'
+              }}>
+                <div style={{ fontSize: '24px' }}>📡</div>
+                <div style={{ fontWeight: 'bold', marginBottom: '5px' }}>CUADRANTE {resultadoRadar.cuadrante + 1}</div>
+                <div style={{ fontSize: '14px', color: '#93c5fd', marginBottom: '8px' }}>
+                  Filas {resultadoRadar.filaMin + 1}–{resultadoRadar.filaMax} · Cols {resultadoRadar.colMin + 1}–{resultadoRadar.colMax}
+                </div>
+                <div style={{ fontSize: '18px' }}><strong>{resultadoRadar.barcosRestantes}</strong> celda{resultadoRadar.barcosRestantes !== 1 ? 's' : ''} de barco</div>
+                <button onClick={() => setResultadoRadar(null)} style={{ marginTop: '10px', padding: '5px 12px', cursor: 'pointer', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '5px', fontSize: '13px' }}>Cerrar</button>
+              </div>
+            )}
+
+            {/*mina mensaje*/}
+            {mensajeMina && (
+              <div style={{
+                position: 'absolute', top: '40%', left: '41%', transform: 'translate(-50%, -50%)', background: '#1a1a1a', border: '2px solid #7632ec',
+                borderRadius: '12px', padding: '20px 35px', color: 'white', textAlign: 'center', zIndex: 20, boxShadow: '0 0 25px rgba(124, 58, 237, 0.6)'
+              }}>
+                <div style={{ fontSize: '32px', marginBottom: '8px' }}>💣</div>
+                <div style={{ fontSize: '18px', fontWeight: 'bold' }}>
+                  {mensajeMina === 'enemigo' ? '¡El enemigo pisó tu mina! Pierde un turno.' : '¡Mina! Pierdes un turno.'}
+                </div>
+                <button onClick={() => setMensajeMina(null)} style={{ marginTop: '10px', padding: '5px 12px', cursor: 'pointer', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '5px', fontSize: '13px' }}>Cerrar</button>
+              </div>
+            )}
 
         {/*pantalla de fin*/}
         {mostrarFin && (
