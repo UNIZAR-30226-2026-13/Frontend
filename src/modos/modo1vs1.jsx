@@ -116,6 +116,9 @@ function Modo1vs1({ salaId, alSalir, usuario }) {
   const ganaEnemigo = fase === 'JUGANDO' && !mios.flat().some(c => (c?.tipo ?? c) === ESTADOS_CASILLAS.BARCO);
   const fin = ganoYo || ganaEnemigo;
 
+  //pausa
+  const [estadoPausa, setEstadoPausa] = useState(null);
+
   //temporizador para mostrar el fin partida
   useEffect(() => {
     if (fin) {
@@ -250,7 +253,7 @@ function Modo1vs1({ salaId, alSalir, usuario }) {
 
   //simulador MOCK
   useEffect(() => {
-    if (fase === 'JUGANDO' && !miTurno && !fin) {
+    if (fase === 'JUGANDO' && !miTurno && !fin && !estadoPausa) {
       if (turnosPenalizadosEnemigo > 0) {
         setTurnosPenalizadosEnemigo(p => p - 1);
         setMiTurno(true);
@@ -308,7 +311,7 @@ function Modo1vs1({ salaId, alSalir, usuario }) {
       
       return () => clearTimeout(timer);
     }
-  }, [miTurno, mios, fin, fase, turnosPenalizadosEnemigo]);
+  }, [miTurno, mios, fin, fase, turnosPenalizadosEnemigo, estadoPausa]);
 
   const usarEscudoEnMio = (f, c) => {
     if (powerUpSeleccionado?.id !== 'esc') return;
@@ -410,11 +413,13 @@ function Modo1vs1({ salaId, alSalir, usuario }) {
     socketService.disparar(salaId, f, c);
   };*/
 
-  //MOCK
+  //MOCK logica de disparo
   const dispararMultijugador = (f, c) => {
     const tipoEnemigo = enemigos[f][c]?.tipo ?? enemigos[f][c];
-    if (fase !== 'JUGANDO' || !miTurno || fin) return;
+    if (fase !== 'JUGANDO' || !miTurno || fin || estadoPausa) return;
     if (tipoEnemigo === ESTADOS_CASILLAS.TOCADO || tipoEnemigo === ESTADOS_CASILLAS.AGUA || tipoEnemigo === ESTADOS_CASILLAS.HUNDIDO) return;
+    
+    if (powerUpSeleccionado?.id === 'esc' || powerUpSeleccionado?.id === 'mine') return;
 
     if (powerUpSeleccionado?.id === 'rad') {
       const resultado = usarRadar(f, c, enemigos, TAM);
@@ -492,6 +497,36 @@ function Modo1vs1({ salaId, alSalir, usuario }) {
     if (!aciertoGlobalBarco) setMiTurno(false);
   };
 
+  //MOCK logica de pausa
+  const solicitarPausa = () => {
+    setEstadoPausa('solicitando');
+    //simulacion de respuesta de enemigo en 2 seg
+    setTimeout(() => {
+      const enemigoAcepta = Math.random() > 0.4;
+      if (enemigoAcepta) {
+        setEstadoPausa('pausada');
+      } else {
+        setEstadoPausa('rechazada');
+        setTimeout(() => setEstadoPausa(null), 2500); 
+      }
+    }, 2000);
+  };
+
+  const responderPausaRival = (acepta) => {
+    if (acepta) {
+      setEstadoPausa('pausada');
+      //futuro aviso a backend: socketService.aceptarPausa(salaId)
+    } else {
+      setEstadoPausa(null);
+      //futuro aviso a backend: socketService.rechazarPausa(salaId)
+    }
+  };
+
+  //boton simulador de que el rival pide pausa
+  const mockRivalPidePausa = () => {
+    if (fase === 'JUGANDO' && !estadoPausa) setEstadoPausa('rival_solicita');
+  };
+
   /*return (
     <div style={{ 
       textAlign: 'center',
@@ -557,16 +592,24 @@ function Modo1vs1({ salaId, alSalir, usuario }) {
         alignItems: 'center', 
         borderBottom: '1px solid #333'
       }}>
-        <button onClick={alSalir} style={{
-          background: '#ef4444', 
-          color: 'white', 
-          border: 'none', 
-          padding: '8px 15px', 
-          borderRadius: '5px', 
-          cursor: 'pointer'
-        }}>
-          ← Salir al Menú
-        </button>
+        <div style={{ display: 'flex', gap: '15px' }}>
+          <button onClick={alSalir} style={{
+            background: '#ef4444', 
+            color: 'white', 
+            border: 'none', 
+            padding: '8px 15px', 
+            borderRadius: '5px', 
+            cursor: 'pointer'
+          }}>
+            ← Salir al Menú
+          </button>
+          {/*boton pausa*/}
+          {fase === 'JUGANDO' && !estadoPausa && !fin && (
+            <button onClick={solicitarPausa} style={{ background: '#f59e0b', color: 'black', border: 'none', padding: '8px 15px', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' }}>
+              ⏸️ Solicitar Pausa
+            </button>
+          )}
+        </div>
         <h2 style={{ margin: 0, fontSize: '1.5rem' }}>
           {fase === 'ESPERANDO_RIVAL' && "SALA: " + salaId}
           {fase === 'COLOCANDO' && "CONFIGURACIÓN DE FLOTA"}
@@ -670,22 +713,39 @@ function Modo1vs1({ salaId, alSalir, usuario }) {
             flexWrap: 'wrap'
           }}>
             <div style={{ 
-              textAlign: 'center', 
+              display: 'flex', 
+              flexDirection: 'column', 
+              alignItems: 'center',
               opacity: miTurno ? 0.7 : 1, 
               transform: 'scale(0.85)', 
-              transition: 'all 0.3s' }}>
+              transition: 'all 0.3s',
+              boxShadow: (powerUpSeleccionado?.id === 'esc' || powerUpSeleccionado?.id === 'mine') ? '0 0 20px #ec9c12' : 'none',
+              borderRadius: '8px', padding: '15px' }}>
               <h4 style={{ 
                 margin: '0 0 10px 0', 
-                color: '#aaa' }}>TU FLOTA</h4>
-              <Tablero skin={'default'} cuadricula={mios} esIA={false} />
+                color: (powerUpSeleccionado?.id === 'esc' || powerUpSeleccionado?.id === 'mine') ? '#f59e0b' : '#aaa' }}>
+                {powerUpSeleccionado?.id === 'esc' ? '🛡️ ELIGE UNA CELDA PARA ESCUDAR' : powerUpSeleccionado?.id === 'mine' ? '💣 ELIGE UNA CELDA PARA MINAR' : 'TU FLOTA'}
+              </h4>
+              <Tablero 
+                skin={usuario?.barco || 'default'} 
+                cuadricula={mios} 
+                esIA={false} 
+                alDisparar={powerUpSeleccionado?.id === 'esc' ? usarEscudoEnMio : (powerUpSeleccionado?.id === 'mine' ? usarMinaEnMio : () => {})}
+                celdasSombra={(powerUpSeleccionado?.id === 'esc' || powerUpSeleccionado?.id === 'mine') ? celdasSombra : []}
+                alEntrarCelda={(f, c) => manejarHover(f, c, false)}
+                alSalirTablero={() => setCeldasSombra([])}
+              />
             </div>
 
             <div style={{ 
-              textAlign: 'center', 
+              display: 'flex', 
+              flexDirection: 'column', 
+              alignItems: 'center', 
               boxShadow: miTurno ? '0 0 20px #3b82f6' : 'none', 
               borderRadius: '8px', 
               transform: 'scale(0.85)', 
-              transition: 'all 0.3s' }}>
+              transition: 'all 0.3s',
+              padding: '15px' }}>
               <h4 style={{ 
                 margin: '0 0 10px 0', 
                 color: powerUpSeleccionado ? '#f59e0b' : '#3b82f6'
@@ -739,6 +799,70 @@ function Modo1vs1({ salaId, alSalir, usuario }) {
                 <button onClick={() => setMensajeMina(null)} style={{ marginTop: '10px', padding: '5px 12px', cursor: 'pointer', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '5px', fontSize: '13px' }}>Cerrar</button>
               </div>
             )}
+
+        {/*pantalla de pausa*/}
+        {estadoPausa === 'solicitando' && (
+          <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.7)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 15 }}>
+            <div style={{ background: '#1e3a5f', border: '2px solid #f59e0b', borderRadius: '10px', padding: '30px', textAlign: 'center', color: 'white' }}>
+              <h3>SOLICITUD ENVIADA</h3>
+              <p>Esperando a que el almirante enemigo acepte la tregua...</p>
+              <div style={{ marginTop: '20px', width: '40px', height: '40px', border: '4px solid #f59e0b', borderRadius: '50%', borderTopColor: 'transparent', animation: 'spin 1s linear infinite', margin: '0 auto' }} />
+            </div>
+          </div>
+        )}
+
+        {estadoPausa === 'rechazada' && (
+          <div style={{ position: 'absolute', top: '20%', left: '50%', transform: 'translate(-50%, 0)', background: '#ef4444', borderRadius: '10px', padding: '15px 30px', color: 'white', textAlign: 'center', zIndex: 15, boxShadow: '0 5px 15px rgba(0,0,0,0.5)' }}>
+            <h3 style={{ margin: 0 }}>SOLICITUD DENEGADA</h3>
+            <p style={{ margin: '5px 0 0 0' }}>El enemigo ha rechazado la pausa. ¡La batalla continúa!</p>
+          </div>
+        )}
+
+        {estadoPausa === 'rival_solicita' && (
+          <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.7)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 15 }}>
+            <div style={{ background: '#1a1a1a', border: '2px solid #3b82f6', borderRadius: '10px', padding: '30px', textAlign: 'center', color: 'white', boxShadow: '0 0 30px rgba(59, 130, 246, 0.5)' }}>
+              <h2 style={{ color: '#3b82f6', marginTop: 0 }}>ALERTA DE TREGUA</h2>
+              <p style={{ fontSize: '1.2rem' }}>El enemigo ha solicitado pausar la partida.</p>
+              <p style={{ color: '#aaa' }}>Podréis retomarla más tarde desde el menú principal.</p>
+              
+              <div style={{ display: 'flex', gap: '20px', justifyContent: 'center', marginTop: '25px' }}>
+                <button onClick={() => responderPausaRival(true)} style={{ padding: '10px 20px', background: '#10b981', color: 'white', border: 'none', borderRadius: '5px', fontSize: '1.1rem', cursor: 'pointer', fontWeight: 'bold' }}>
+                  ACEPTAR
+                </button>
+                <button onClick={() => responderPausaRival(false)} style={{ padding: '10px 20px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '5px', fontSize: '1.1rem', cursor: 'pointer', fontWeight: 'bold' }}>
+                  RECHAZAR
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {estadoPausa === 'pausada' && (
+          <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.85)', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', zIndex: 20 }}>
+            <div style={{ fontSize: '64px', marginBottom: '10px' }}>⏸️</div>
+            <h2 style={{ fontSize: '36px', color: '#f59e0b', margin: 0 }}>PARTIDA PAUSADA</h2>
+            <p style={{ color: '#aaa', fontSize: '1.2rem', marginBottom: '30px' }}>El estado de la flota ha sido guardado. Podéis retiraros.</p>
+            
+            <div style={{ display: 'flex', gap: '20px' }}>
+              <button onClick={alSalir} style={{ padding: '15px 30px', fontSize: '18px', cursor: 'pointer', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold' }}>
+                Guardar y Salir al Menú
+              </button>
+              
+              {/*boton para testing para quitar la pausa sin tener que salir*/}
+              <button onClick={() => setEstadoPausa(null)} style={{ padding: '15px 30px', fontSize: '18px', cursor: 'pointer', background: '#222', color: '#aaa', border: '1px solid #555', borderRadius: '8px' }}>
+                [DEV] Reanudar
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/*boton MOCK simulacion de peticion de pausa del rival*/}
+        {fase === 'JUGANDO' && !estadoPausa && (
+          <button onClick={mockRivalPidePausa} style={{ position: 'absolute', bottom: '10px', right: '10px', background: 'transparent', border: '1px solid #333', color: '#555', cursor: 'pointer' }}>
+            Simular petición rival
+          </button>
+        )}
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
 
         {/*pantalla de fin*/}
         {mostrarFin && (
