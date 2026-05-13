@@ -5,6 +5,7 @@
 //import { generarTabVacio } from './modoIA'
 import React, { useEffect, useState } from 'react';
 import socketService from '../api/socketService';
+import apiService from '../api/apiService';
 import { BARCOS, TABLEROS, ESTADOS_CASILLAS } from '../constants/configuracion'; 
 import Tablero from '../components/tablero';
 import Barcos from '../components/barcos';
@@ -81,6 +82,7 @@ function Modo1vs1({ salaId, alSalir, usuario }) {
 
   //Estados de conexion y turnos
   const [fase, setFase] = useState('ESPERANDO_RIVAL');
+  const [idPartida, setIdPartida] = useState(null);
   const [miTurno, setMiTurno] = useState(false);
   //const [idRival, setIdRival] = useState(null);
   const [idRival, setIdRival] = useState('Enemigo_Fantasma');
@@ -112,22 +114,39 @@ function Modo1vs1({ salaId, alSalir, usuario }) {
   const [mostrarFin, setMostrarFin] = useState(false);
   
   //condicion victoria
-  const ganoYo = fase === 'JUGANDO' && !enemigos.flat().some(c => (c?.tipo ?? c) === ESTADOS_CASILLAS.BARCO);
-  const ganaEnemigo = fase === 'JUGANDO' && !mios.flat().some(c => (c?.tipo ?? c) === ESTADOS_CASILLAS.BARCO);
-  const fin = ganoYo || ganaEnemigo;
+  //const ganoYo = fase === 'JUGANDO' && !enemigos.flat().some(c => (c?.tipo ?? c) === ESTADOS_CASILLAS.BARCO);
+  //const ganaEnemigo = fase === 'JUGANDO' && !mios.flat().some(c => (c?.tipo ?? c) === ESTADOS_CASILLAS.BARCO);
+  //const fin = ganoYo || ganaEnemigo;
 
   //pausa
   const [estadoPausa, setEstadoPausa] = useState(null);
 
+  //logica de victoria
+  const TOTAL_IMPACTOS_PARA_GANAR = 17;
+
+  const aciertosLogrados = enemigos.flat().filter(c => {
+      const estado = (c?.tipo ?? c);
+      return estado === "tocado" || estado === "hundido";
+  }).length;
+
+  const ganoYo = fase === 'JUGANDO' && aciertosLogrados === TOTAL_IMPACTOS_PARA_GANAR;
+
+  const ganaEnemigo = fase === 'JUGANDO' && mios.length > 0 && !mios.flat().some(c => {
+      const estado = (c?.tipo ?? c);
+      return estado === "barco" || estado === ESTADOS_CASILLAS.BARCO || (typeof c === 'object' && c.tipo === 1);
+  });
+
+  const fin = ganoYo || ganaEnemigo;
+
   //temporizador para mostrar el fin partida
-  useEffect(() => {
+  /*useEffect(() => {
     if (fin) {
       const timer = setTimeout(() => {
         setMostrarFin(true);
       }, 1000);
       return () => clearTimeout(timer);
     }
-  }, [fin]);
+  }, [fin]);*/
 
   /*useEffect(() => {
     socketService.conectar();
@@ -186,7 +205,7 @@ function Modo1vs1({ salaId, alSalir, usuario }) {
   }, [salaId]);*/
 
   //MOCK 
-  useEffect(() => {
+  /*useEffect(() => {
     //simular matchmaking
     if (fase === 'ESPERANDO_RIVAL') {
       const timerEncontrar = setTimeout(() => {
@@ -205,7 +224,73 @@ function Modo1vs1({ salaId, alSalir, usuario }) {
       }, 2500); // 2.5 segundos de espera
       return () => clearTimeout(timerRivalListo);
     }
-  }, [fase]);
+  }, [fase]);*/
+
+  //conexion al servidor y matchmaking
+  useEffect(() => {
+    socketService.conectar();
+    socketService.unirseSalaPrivada();
+
+    socketService.onPartidaEncontrada((datos) => {
+      console.log("¡Alerta de Radar! Rival encontrado por Socket:", datos);
+      setIdPartida(datos.partidaID);
+      setFase('COLOCANDO');
+    });
+    //servidor nos dice que es nuestro turno
+    socketService.onTuTurno((datos) => {
+      console.log("Nuestro turno:", datos);
+      setMios(datos.tablero);
+      setEnemigos(datos.tableroRival);
+      if (datos.inventario) setInventarioMio(adaptarInventario(datos.inventario));
+      setMiTurno(true);
+    });
+    //recibimos disparo pero aun no es nuestro turno
+    socketService.onActualizarEstado((datos) => {
+      console.log("Impacto enemigo recibido:", datos);
+      setMios(datos.tablero);
+      setEnemigos(datos.tableroRival);
+      if (datos.inventario) setInventarioMio(adaptarInventario(datos.inventario));
+      setMiTurno(false);
+    });
+
+    if (fase === 'ESPERANDO_RIVAL') {
+      const buscarOponente = async () => {
+        try {
+          const username = usuario?.user || usuario?.username || 'soldado_anonimo';
+          const res = await apiService.buscarPartida(username);
+          
+          if (res.status === "Encontrada") {
+            console.log("¡Rival encontrado al instante!", res);
+            setIdPartida(res.partidaID);
+            setFase('COLOCANDO');
+          } else if (res.status === "InQueue") {
+            console.log("Entrando en la cola. Aguardando señal de radio...");
+          }
+        } catch (error) {
+          console.error("Fallo crítico de comunicaciones:", error);
+          alert("Error al conectar con el cuartel general.");
+          alSalir(); // Te saca al menú si el servidor está caído
+        }
+      };
+      
+      buscarOponente();
+    }
+
+    //MOCK temporal para colocacion
+    if (fase === 'ESPERANDO_LISTO_RIVAL') {
+      const timerRivalListo = setTimeout(() => {
+        setFase('JUGANDO');
+        setMiTurno(true); 
+      }, 2500); 
+      return () => clearTimeout(timerRivalListo);
+    }
+
+    return () => {
+      if (fase === 'ESPERANDO_RIVAL' || fin) {
+        socketService.desconectar();
+      }
+    };
+  }, [fase, usuario, alSalir, fin]);
 
   //logca de colocacion
   //hover para mostrar donde se colocaria el barco
@@ -252,7 +337,7 @@ function Modo1vs1({ salaId, alSalir, usuario }) {
   };
 
   //simulador MOCK
-  useEffect(() => {
+  /*useEffect(() => {
     if (fase === 'JUGANDO' && !miTurno && !fin && !estadoPausa) {
       if (turnosPenalizadosEnemigo > 0) {
         setTurnosPenalizadosEnemigo(p => p - 1);
@@ -311,7 +396,7 @@ function Modo1vs1({ salaId, alSalir, usuario }) {
       
       return () => clearTimeout(timer);
     }
-  }, [miTurno, mios, fin, fase, turnosPenalizadosEnemigo, estadoPausa]);
+  }, [miTurno, mios, fin, fase, turnosPenalizadosEnemigo, estadoPausa]);*/
 
   const usarEscudoEnMio = (f, c) => {
     if (powerUpSeleccionado?.id !== 'esc') return;
@@ -399,22 +484,99 @@ function Modo1vs1({ salaId, alSalir, usuario }) {
     setCeldasSombra([]); 
   };
 
-  const confirmarTablero = () => {
-    setFase('ESPERANDO_LISTO_RIVAL');
-    setEnemigos(generarTableroEnemigoMock());
-    asignarPowerUps();
-    //MOCK
-    //socketService.enviarTablero(salaId, mios);
+  //escanear barcos
+  const extraerBarcosDeCuadricula = (grid) => {
+    const barcos = [];
+
+    for (let f = 0; f < 10; f++) {
+      for (let c = 0; c < 10; c++) {
+        const celda = grid[f][c];
+        
+        if (celda && typeof celda === 'object' && celda.tipo === 1 && celda.indice === 0) {
+          barcos.push({
+            size: celda.total,
+            f: f,
+            c: c,
+            orientacion: celda.orientacion
+          });
+        }
+      }
+    }
+    return barcos;
   };
 
-  //logica de jugo
-  /*const dispararMultijugador = (f, c) => {
-    if (!miTurno || enemigos[f][c] !== ESTADOS_CASILLAS.VACIO || fase !== 'JUGANDO') return;
-    socketService.disparar(salaId, f, c);
-  };*/
+  //adapto inventario a backend
+  const adaptarInventario = (inventarioBackend) => {
+    if (!inventarioBackend) return [];
+    
+    const inventarioArray = [];
+    Object.entries(inventarioBackend).forEach(([boostName, cantidad]) => {
+      for (let i = 0; i < cantidad; i++) {
+        inventarioArray.push({ id: boostName }); 
+      }
+    });
+    return inventarioArray;
+  };
+
+  const confirmarTablero = async () => {
+    try {
+      console.log("Mapa interno del tablero:", mios);
+      const barcosListos = extraerBarcosDeCuadricula(mios);
+      console.log("Flota detectada y preparada para el envío:", barcosListos);
+
+      //envio al backend
+      const res = await apiService.colocarBarcos(idPartida, barcosListos);
+      
+      if (res.ok) {
+        const datos = await res.json();
+        console.log("Flota aprobada por el servidor:", datos);
+        
+        //servidor devuelve tablero
+        setMios(datos.tablero); 
+        setEnemigos(datos.tableroRival);
+        setInventarioMio(adaptarInventario(datos.inventario));
+        
+        setFase('ESPERANDO_LISTO_RIVAL'); 
+      } else {
+        const errorData = await res.json();
+        alert(`Fallo en la formación: ${errorData.message}`);
+      }
+    } catch (error) {
+      console.error("Error en las comunicaciones de despliegue:", error);
+    }
+  };
+
+  //logica de juego
+  const dispararMultijugador = async (f, c) => {
+    //controles
+    if (fase !== 'JUGANDO' || !miTurno || fin || estadoPausa) return;
+    const tipoEnemigo = enemigos[f][c]?.tipo ?? enemigos[f][c];
+    if (tipoEnemigo === 'tocado' || tipoEnemigo === 'agua' || tipoEnemigo === 'hundido') return;
+    if (powerUpSeleccionado?.id === 'esc' || powerUpSeleccionado?.id === 'mine') return;
+
+    try {
+      //envio disparo al servidor
+      const tipoDisparo = powerUpSeleccionado ? "boost" : "disparo";
+      const boostType = powerUpSeleccionado ? powerUpSeleccionado.id : "None";
+      
+      const res = await apiService.enviarMovimiento(idPartida, f, c, tipoDisparo, boostType);
+      
+      if (res.ok) {
+        const datos = await res.json();
+        //servidor nos devuelve resultado
+        setEnemigos(datos.tableroRival);
+        setMios(datos.tablero); 
+        if (datos.inventario) setInventarioMio(adaptarInventario(datos.inventario));
+        setMiTurno(datos.tuTurno);
+        setPowerUpSeleccionado(null);
+      }
+    } catch (error) {
+      console.error("Error al disparar:", error);
+    }
+  };
 
   //MOCK logica de disparo
-  const dispararMultijugador = (f, c) => {
+  /*const dispararMultijugador = (f, c) => {
     const tipoEnemigo = enemigos[f][c]?.tipo ?? enemigos[f][c];
     if (fase !== 'JUGANDO' || !miTurno || fin || estadoPausa) return;
     if (tipoEnemigo === ESTADOS_CASILLAS.TOCADO || tipoEnemigo === ESTADOS_CASILLAS.AGUA || tipoEnemigo === ESTADOS_CASILLAS.HUNDIDO) return;
@@ -495,7 +657,7 @@ function Modo1vs1({ salaId, alSalir, usuario }) {
     setPowerUpSeleccionado(null); setEnemigos(nuevoEnemigos); setPUEnemigos(copiaPUEnemigos);
     setInventarioMio(procesarInventario(inventarioMio, powerUpSeleccionado, idsEncontrados));
     if (!aciertoGlobalBarco) setMiTurno(false);
-  };
+  };*/
 
   //MOCK logica de pausa
   const solicitarPausa = () => {
@@ -606,7 +768,7 @@ function Modo1vs1({ salaId, alSalir, usuario }) {
           {/*boton pausa*/}
           {fase === 'JUGANDO' && !estadoPausa && !fin && (
             <button onClick={solicitarPausa} style={{ background: '#f59e0b', color: 'black', border: 'none', padding: '8px 15px', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' }}>
-              ⏸️ Solicitar Pausa
+              Solicitar Pausa
             </button>
           )}
         </div>

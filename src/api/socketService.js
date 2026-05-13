@@ -60,8 +60,8 @@ class SocketService {
 
   onActualizarEstado(callback) {
       if(this.socket) {
-          this.socket.off('actualizar_estado');
-          this.socket.on('actualizar_estado', callback);
+          this.socket.off('actualizar_tablero');
+          this.socket.on('actualizar_tablero', callback);
       }
   }
 
