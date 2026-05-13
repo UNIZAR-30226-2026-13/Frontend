@@ -11,7 +11,8 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
-      '/api': 'http://localhost:3000'
+      '/api': 'https://hunde-la-flota.up.railway.app'
+      //'/api': 'http://localhost:3000'
     }
   }
 })
