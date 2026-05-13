@@ -19,7 +19,7 @@ function Inicio ({alAcceder, irRegistro, googleLogin}){
             });
             if (res.status === 200){
               if (res.status === 200){
-                const perfilRes = await fetch(`/api/usuario/${usuario}`);
+                const perfilRes = await fetch(`/api/usuario/${usuario}`,{credentials: 'include'});
                 if (perfilRes.status === 200) {
                   const datosPerfil = await perfilRes.json();
                   localStorage.setItem('_pass', contrasena);

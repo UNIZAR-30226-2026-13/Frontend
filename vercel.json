@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://hunde-la-flota.up.railway.app/"
+      "destination": "https://hunde-la-flota.up.railway.app/:path*"
     }
   ]
 }

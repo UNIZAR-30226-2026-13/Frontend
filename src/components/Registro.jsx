@@ -22,7 +22,7 @@ function Registro({alVolverInicio}){
       setCargando(true);
       setError('');
       try {
-        const res = await fetch('/api/usuario/registro', {
+        const res = await fetch('https://hunde-la-flota.up.railway.app/api/usuario/registro', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ username: usuario, email: email, password: contrasena }),
