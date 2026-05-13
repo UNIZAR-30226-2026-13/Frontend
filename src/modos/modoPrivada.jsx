@@ -7,6 +7,7 @@ import Barcos from '../components/barcos';
 import Inventario from '../components/inventario';
 import { generarTabPowerUps, obtenerCeldasImpacto, procesarInventario, usarRadar, aplicarEscudo, usarTornado, obtenerHoverPowerUp } from '../components/Powerups';
 import { POWER_UPS } from '../constants/configuracion';
+import apiService from '../api/apiService';
 
 function JuegoPrivada({ alSalir, configuracion }) {
   console.log("🚩 RASTREADOR 4 (Mochila recibida en pantalla):", configuracion);
@@ -217,9 +218,9 @@ function JuegoPrivada({ alSalir, configuracion }) {
     };*/
 
     //prepararPartida momentanea sin backend, para MOCK
-    const prepararPartida = () => {
+    const prepararPartida = (tam = tamano, numBarcos = numeroBarcos) => {
     try {
-      if (!tamano) throw new Error("Falta el tamaño del tablero.");
+      if (!tam) throw new Error("Falta el tamaño del tablero.");
 
       const generarVacio = () => Array(tamano).fill(null).map(() => Array(tamano).fill(ESTADOS_CASILLAS.VACIO));
       let nuevoMio = generarVacio();
@@ -293,7 +294,7 @@ function JuegoPrivada({ alSalir, configuracion }) {
     useEffect(() => {
       if (configuracion?.esInvitado) {
         console.log("🛠️ Invitado configurando partida con:", configuracion);
-        prepararPartida(configuracion.tamano, configuracion.numeroBarcos);        
+        prepararPartida();        
         setFasePartida('COLOCANDO'); 
       }
     }, []);

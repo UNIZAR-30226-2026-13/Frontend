@@ -148,6 +148,51 @@ function Perfil({ alSalir, usuario, actualizarUsuario }){
     )
 }
 
+function HistorialPartidas({ historial, username }) {
+
+  if (historial === null) {   // ← esto lo quitaste y hace falta
+    return <p style={{ color: '#555', textAlign: 'center' }}>
+      Cargando historial
+    </p>
+  }
+  if (historial.length === 0) {
+    return <p style={{ color: '#555', textAlign: 'center' }}>
+      Sin partidas
+    </p>
+  }
+ 
+  return historial.map((partida, i) => {
+    const rival = partida.owner_username === username ? partida.guest_username : partida.owner_username
+    const gane = partida.ganador_id === username
+    const fecha = partida.fecha ? new Date(partida.fecha).toLocaleDateString('es-ES') : '—'
+    const tipo = partida.ranked ? ' Ranked' : 'Normal'
+ 
+    return (
+      <div key={partida.id || i} style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: '12px 16px',
+        borderBottom: '1px solid #444',
+        color: gane ? '#10b981' : '#ef4444'
+      }}>
+        <span style={{ flex: 1 }}>
+          vs {rival}
+        </span>
+        <span style={{ flex: 1, color: '#aaa' }}>
+          {tipo}
+        </span>
+        <span style={{ flex: 1, fontWeight: 'bold' }}>
+          {gane ? 'Victoria' : 'Derrota'}
+        </span>
+        <span style={{ color: '#aaa' }}>
+          {fecha}
+        </span>
+      </div>
+    )
+  })
+}
+
 function PantallaPerfil({ usuario, actualizarUsuario ,imgFoto}) {
   const [editando, setEditando] = useState(false);
   const [nuevoUsername, setNuevoUsername] = useState(usuario?.username || '');
@@ -155,6 +200,42 @@ function PantallaPerfil({ usuario, actualizarUsuario ,imgFoto}) {
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState('');
   const [exito, setExito] = useState(false);
+  const [nuevaContrasena, setNuevaContrasena] = useState('');
+  const [historial, setHistorial] = useState(null);
+  const esCuentaGoogle = localStorage.getItem('_pass')?.startsWith('google_');
+  const [confirmandoBorrar, setConfirmandoBorrar] = useState(false)
+
+  useEffect(() => {
+    const cargarHistorial = async () => {
+      try {
+        const res = await fetch(`/api/terminadas/${usuario?.username}`);
+        if (res.status === 200) {
+          const datos = await res.json();
+          setHistorial(datos);
+        } else {
+          setHistorial([]);
+        }
+      } catch (e) {
+        console.error('Error cargando historial:', e);
+        setHistorial([]);
+      }
+    };
+    if (usuario?.username) cargarHistorial();
+  }, [usuario?.username]);
+
+  const eliminarCuenta = async () => {
+    try {
+      const res = await fetch('/api/usuario/eliminar', {
+        method: 'DELETE',
+        credentials: 'include'
+      })
+      if (res.status === 200) {
+        window.location.reload()
+      }
+    } catch {
+      console.error('Error al eliminar cuenta')
+    }
+  }
 
   const guardar = async () => {
     const pass = localStorage.getItem('_pass');
@@ -165,7 +246,7 @@ function PantallaPerfil({ usuario, actualizarUsuario ,imgFoto}) {
       const res = await fetch('/api/usuario/configuracion', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ newData: { username: nuevoUsername, email: nuevoEmail, password: pass } })
+        body: JSON.stringify({ newData: { username: nuevoUsername, email: usuario.email, password: nuevaContrasena.trim() !== '' ? nuevaContrasena : localStorage.getItem('_pass') } })
       });
       if (res.status === 200) {
           // Recargar datos actualizados desde la API
@@ -195,6 +276,7 @@ function PantallaPerfil({ usuario, actualizarUsuario ,imgFoto}) {
     setNuevoEmail(usuario?.email || '');
     setError('');
     setEditando(false);
+    setNuevaContrasena('');
   };
 
   return (
@@ -239,7 +321,7 @@ function PantallaPerfil({ usuario, actualizarUsuario ,imgFoto}) {
         <div style={{ 
           display: 'flex', 
           flexDirection: 'column', 
-          gap: '8px', 
+          gap: '16px', 
           flex: 1               // asi ocupa el tamaño restante
         }}>
           <div>
@@ -266,38 +348,64 @@ function PantallaPerfil({ usuario, actualizarUsuario ,imgFoto}) {
             <input
               value={nuevoEmail}
               onChange={e => setNuevoEmail(e.target.value)}
-              disabled={!editando}
+              disabled={true}
               style={{padding: '12px',
                 width: '100%',
                 boxSizing: 'border-box',
                 borderRadius: '10px',
                 fontSize: '16px',
                 outline: 'none',
-                background: editando ? '#111' : '#333',
-                border: editando ? '2px solid #3b82f6' : '2px solid #555',
-                color: editando ? 'white' : '#555',
-                cursor: editando ? 'text' : 'default'
+                background: '#333',
+                border: '2px solid #555',
+                color: '#555',
+                cursor: 'default'
               }}
             />
           </div>
-          <div>
-            <p style={{ margin: '8px', color: '#ffffff', fontSize: '14px' }}>ELO</p>
-            <div style={{
-              padding: '12px', background: '#333', border: '2px solid #555',
-              borderRadius: '10px', fontSize: '16px', color: '#555'
-            }}>
-              {usuario?.elo ?? 0}
+          {!esCuentaGoogle && (
+            <div>
+              <p style={{ margin: '8px', color: '#ffffff', fontSize: '14px' }}>Contraseña</p>
+              {editando ? (
+                <input
+                  type="password"
+                  placeholder="Nueva contraseña (dejar vacío para no cambiar)"
+                  value={nuevaContrasena}
+                  onChange={e => setNuevaContrasena(e.target.value)}
+                  style={{padding: '12px',
+                  width: '100%',
+                  boxSizing: 'border-box',
+                  borderRadius: '10px',
+                  fontSize: '16px',
+                  outline: 'none',
+                  background: editando ? '#111' : '#333',
+                  border: editando ? '2px solid #3b82f6' : '2px solid #555',
+                  color: editando ? 'white' : '#555',
+                  cursor: editando ? 'text' : 'default'
+                }}
+                />
+              ) : (
+                <div style={{
+                  padding: '12px',
+                  background: '#333', 
+                  border: '2px solid #555',
+                  borderRadius: '10px', 
+                  fontSize: '16px', 
+                  color: '#555'
+                }}>
+                  ••••••••
+                </div>
+              )}
             </div>
-          </div>
+          )}
 
           {error && <p style={{ color: '#ef4444', fontSize: '13px', margin: 0 }}>{error}</p>}
           {exito && <p style={{ color: '#10b981', fontSize: '13px', margin: 0 }}>✓ Cambios guardados</p>}
           
           {!editando ? (
             <button onClick={() => setEditando(true)} style={{
-              padding: '12px', background: '#3b82f6', color: 'white',
+              padding: '8px 16px', background: '#3b82f6', color: 'white',
               border: 'none', borderRadius: '10px', cursor: 'pointer',
-              fontWeight: 'bold', fontSize: '15px', alignSelf: 'flex-start'
+              fontWeight: 'bold', fontSize: '15px'
             }}>
               Editar perfil
             </button>
@@ -319,23 +427,77 @@ function PantallaPerfil({ usuario, actualizarUsuario ,imgFoto}) {
               </button>
             </div>
           )}
+          {!confirmandoBorrar ? (
+            <button onClick={() => setConfirmandoBorrar(true)} style={{
+              padding: '8px 16px', background: 'transparent', color: '#ef4444',
+              border: '1px solid #ef4444', borderRadius: '8px', cursor: 'pointer', fontSize: '13px'
+            }}>
+              Eliminar cuenta
+            </button>
+          ) : (
+            <>
+              <span style={{ color: '#aaa', fontSize: '13px' }}>¿Seguro?</span>
+              <button onClick={eliminarCuenta} style={{
+                padding: '8px 16px', background: '#ef4444', color: 'white',
+                border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '13px'
+              }}>
+                Si, eliminar
+              </button>
+              <button onClick={() => setConfirmandoBorrar(false)} 
+                style={{
+                  padding: '8px 16px', 
+                  background: 'transparent', 
+                  color: '#aaa',
+                  border: '1px solid #555', 
+                  borderRadius: '8px', 
+                  cursor: 'pointer', 
+                  fontSize: '13px'
+                }}>
+                  Cancelar
+              </button>
+            </>
+          )}
         </div>
       </div>
  
       <div>
-        <p style={{ margin: '12px', color: '#ffffff', fontSize: '14px' }}>Estadísticas</p>
+        <p style={{ margin: '12px', color: '#ffffff', fontSize: '14px' }}>
+          Estadísticas
+        </p>
+        <div style={{ display: 'flex', gap: '20px', marginBottom: '20px' }}>
+          {[
+            {label: 'Partidas jugadas', valor: usuario?.partidas_jugadas ?? 0 },
+            {label: 'Partidas ganadas', valor: usuario?.partidas_ganadas ?? 0 },
+            {label: 'ELO', valor: usuario?.elo ?? 1000 },
+          ].map(stat => (
+            <div 
+              key={stat.label} 
+              style={{
+                flex: 1, 
+                background: '#333', 
+                border: '2px solid #555',
+                borderRadius: '10px', 
+                padding: '16px', 
+                textAlign: 'center'
+              }}>
+              <p style={{ margin: '0 0 6px 0', color: '#aaa', fontSize: '12px' }}>
+                {stat.label}
+              </p>
+              <p style={{ margin: 0, fontSize: '24px', fontWeight: 'bold' }}>
+                {stat.valor}
+              </p>
+            </div>
+          ))}
+        </div>
+ 
+        <p style={{ margin: '12px', color: '#ffffff', fontSize: '14px' }}>
+          Historial de partidas
+        </p>
         <div style={{
-          background: '#333', 
-          border: '2px solid #555', 
-          borderRadius: '10px',
-          padding: '30px', 
-          minHeight: '200px',
-          display: 'flex', 
-          alignItems: 'center', 
-          justifyContent: 'center'
+          background: '#333', border: '2px solid #555', borderRadius: '10px',
+          padding: '16px', minHeight: '120px'
         }}>
-          {/* API*/}
-          <p style={{ color: '#555', fontSize: '14px' }}>Sin partidas</p>
+          <HistorialPartidas historial={historial} username={usuario?.username} />
         </div>
       </div>
  

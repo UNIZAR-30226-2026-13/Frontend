@@ -84,23 +84,22 @@ function Menu({ alElegir, usuario }) {
           const data = await res.json(); 
           console.log("📡 DATOS RECIBIDOS DEL BACKEND:", data);
 
-          const s = data.settings?.gameSettings || data.settings || {};       
+          const s = data.gameSettings;       
 
           const configReal = {
               codigoSala: codigoSalaEntrada.trim(),
-              tamano: s.board_size || s.size || 10,
+              esInvitado: true,
+              tamano: s.board_size,
               numeroBarcos: {
-                  FRA: s.two_count || (s.boats && s.boats[0]) || 1,
-                  SUB: s.three_count || (s.boats && s.boats[1]) || 1,
-                  ACO: s.four_count || (s.boats && s.boats[2]) || 1,
-                  POR: s.five_count || (s.boats && s.boats[3]) || 1
+                  fra: s.two_count,
+                  sub: s.three_count,
+                  aco: s.four_count,
+                  por: s.five_count
               },
-              esInvitado: true
+              numPowerups: Math.floor(s.board_size * s.board_size * s.boost_ratio),
           };
 
           console.log("✅ MOCHILA FINAL DEL INVITADO:", configReal);
-          alElegir('JUGAR_PRIVADA', configReal);
-
           alElegir('JUGAR_PRIVADA', configReal);
           
       } else {

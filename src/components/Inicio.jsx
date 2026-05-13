@@ -49,10 +49,10 @@ function Inicio ({alAcceder, irRegistro, googleLogin}){
     };*/
 
     const hacerLoginGoogle = () => {
-        if (!usuario.trim()) {  // trim elimina espacios
+        /*if (!usuario.trim()) {  // trim elimina espacios
             setError('Usuario vacios');
             return;
-        }
+        }*/
         googleLogin();
     };
 
