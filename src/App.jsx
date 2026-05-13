@@ -163,7 +163,7 @@ function App() {
 
       {modo === 'IA' && (<JuegoIA key={idPartida} alSalir={() => setModo('MENU')} alElegir={manejarModo} usuario={usuario}/>)}
 
-      {modo === '1VS1' && (<JuegoLocal alSalir={() => setModo('MENU')} />)}
+      {modo === '1VS1' && (<JuegoLocal alSalir={() => setModo('MENU') } usuario={usuario}/>)}
 
       {modo === 'INICIO' && (<Inicio alAcceder={login}
                               irRegistro={() => setModo('REGISTRO')}
@@ -175,7 +175,8 @@ function App() {
       {modo === 'PERFIL' && (<Perfil alSalir={() => setModo('MENU')} usuario={usuario} actualizarUsuario={setUsuario}/>)}
 
       {modo  === 'PRIVADA' && (<CrearPrivada alSalir={() => setModo('MENU')}
-                                              alEmpezar={empezarPartidaPrivada}/>)}
+                                              alEmpezar={empezarPartidaPrivada}
+                                              usuario={usuario}/>)}
 
       {modo === 'JUGAR_PRIVADA' && (<JuegoPrivada alSalir={() => setModo('MENU')} 
                                               configuracion={configPrivada} />)}

@@ -1,4 +1,4 @@
-const API_URL = 'http://localhost:3000/api';
+const API_URL = 'https://hunde-la-flota.up.railway.app' || 'http://localhost:3000/api';
 
 const fetchConfig = (method, body = null) => {
     const config = {

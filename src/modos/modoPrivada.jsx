@@ -5,11 +5,11 @@ import socketService from '../api/socketService';
 import Tablero from '../components/tablero';
 import Barcos from '../components/barcos';
 import Inventario from '../components/inventario';
-import { generarTabPowerUps, obtenerCeldasImpacto, procesarInventario, usarRadar, aplicarEscudo, usarTornado, obtenerHoverPowerUp } from '../components/Powerups';
+import { generarTabPowerUps, obtenerCeldasImpacto, procesarInventario, usarRadar, aplicarEscudo, usarTornado, obtenerHoverPowerUp } from '../components/powerups';
 import { POWER_UPS } from '../constants/configuracion';
 import apiService from '../api/apiService';
 
-function JuegoPrivada({ alSalir, configuracion }) {
+function JuegoPrivada({ alSalir, configuracion ,usuario}) {
   console.log("🚩 RASTREADOR 4 (Mochila recibida en pantalla):", configuracion);
   const codigoSala = configuracion?.codigoSala || 'X7K9A';
   console.log("🚩 RASTREADOR 5 (Código final que se va a pintar):", codigoSala);
@@ -847,6 +847,7 @@ function JuegoPrivada({ alSalir, configuracion }) {
             <div style={{ transform: 'scale(1)', transition: 'all 0.5s', textAlign: 'center', borderRadius: '8px' }}>  
               <h4 style={{ margin: '0 0 10px 0', color: '#aaa' }}>TU FLOTA</h4>
               <Tablero 
+                skin={usuario?.barco || 'default'}
                 cuadricula={tableroMio} 
                 alDisparar={fasePartida === 'COLOCANDO' ? colocarBarcoManual : 
                   (powerUpSeleccionado?.id === 'esc' ? usarEscudoEnMio : 

@@ -11,7 +11,7 @@ import Tablero from '../components/tablero';
 import Barcos from '../components/barcos';
 import { POWER_UPS } from '../constants/configuracion'; 
 import Inventario from '../components/inventario';
-import { generarTabPowerUps, obtenerCeldasImpacto, procesarInventario, usarRadar, aplicarEscudo, usarTornado, obtenerHoverPowerUp} from '../components/Powerups';
+import { generarTabPowerUps, obtenerCeldasImpacto, procesarInventario, usarRadar, aplicarEscudo, usarTornado, obtenerHoverPowerUp} from '../components/powerups';
 
 const TAM = TABLEROS.ESTANDAR_TAM;
 
