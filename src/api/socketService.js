@@ -1,6 +1,6 @@
 import { io } from 'socket.io-client';
 
-const SOCKET_URL = "https://hunde-la-flota.up.railway.app" || "http://localhost:3000"; 
+const SOCKET_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
 class SocketService {
   constructor() {

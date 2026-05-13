@@ -1,4 +1,4 @@
-const API_URL = 'https://hunde-la-flota.up.railway.app' || 'http://localhost:3000/api';
+const SOCKET_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
 const fetchConfig = (method, body = null) => {
     const config = {
