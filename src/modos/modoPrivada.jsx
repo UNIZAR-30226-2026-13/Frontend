@@ -9,8 +9,11 @@ import { generarTabPowerUps, obtenerCeldasImpacto, procesarInventario, usarRadar
 import { POWER_UPS } from '../constants/configuracion';
 
 function JuegoPrivada({ alSalir, configuracion }) {
-  const [fasePartida, setFasePartida] = useState('ESPERANDO'); //ESPERANDO
-  const [codigoSala, setCodigoSala] = useState(configuracion?.codigoSala || 'X7K9A');
+  console.log("🚩 RASTREADOR 4 (Mochila recibida en pantalla):", configuracion);
+  const codigoSala = configuracion?.codigoSala || 'X7K9A';
+  console.log("🚩 RASTREADOR 5 (Código final que se va a pintar):", codigoSala);
+
+  const [fasePartida, setFasePartida] = useState('ESPERANDO');
 
   const { tamano, numeroBarcos } = configuracion || {};
 
@@ -36,19 +39,75 @@ function JuegoPrivada({ alSalir, configuracion }) {
   const [powerUpSeleccionado, setPowerUpSeleccionado] = useState(null);
   const [resultadoRadar, setResultadoRadar] = useState(null);
 
+  const extraerBarcosDeCuadricula = (grid) => {
+    const barcos = [];
+    for (let f = 0; f < grid.length; f++) {
+      for (let c = 0; c < grid[0].length; c++) {
+        const celda = grid[f][c];
+        if (celda && typeof celda === 'object' && celda.tipo === ESTADOS_CASILLAS.BARCO && celda.indice === 0) {
+          barcos.push({ size: celda.total, f: f, c: c, orientacion: celda.orientacion });
+        }
+      }
+    }
+    return barcos;
+  };
+
+  const adaptarInventario = (inventarioBackend) => {
+    if (!inventarioBackend) return [];
+    const inventarioArray = [];
+    Object.entries(inventarioBackend).forEach(([boostName, cantidad]) => {
+      for (let i = 0; i < cantidad; i++) inventarioArray.push({ id: boostName }); 
+    });
+    return inventarioArray;
+  };
+
+  const adaptarTablero = (tableroServidor, tableroLocal) => {
+    if (!tableroServidor) return [];
+    return tableroServidor.map((fila, f) =>
+      fila.map((celdaServidor, c) => {
+        const celdaLocal = tableroLocal && tableroLocal[f] ? tableroLocal[f][c] : 0;
+        if (typeof celdaServidor === 'string' && celdaServidor.startsWith("barco") && celdaLocal && typeof celdaLocal === 'object') {
+          return celdaLocal;
+        }
+        let estadoBase = celdaServidor;
+        if (typeof celdaServidor === 'string') {
+            if (celdaServidor.startsWith("barco")) estadoBase = "barco";
+            if (celdaServidor.startsWith("tocado")) estadoBase = "tocado";
+        }
+        switch (estadoBase) {
+          case "agua": return 0;
+          case "nada": return 3;
+          case "barco": return 1;
+          case "tocado": return 2;
+          case "hundido": return 6;
+          case "minaActiva": return 4;
+          case "escudo(barco)": case "escudo(agua)": return 5;
+          default: return 0;
+        }
+      })
+    );
+  };
+
   //logica fin de partida
-  //buscamos si queda algun barco (tmbien con escudo) en ambos tableros
-  const ganoYo = fasePartida === 'JUGANDO' && !tableroEnemigo.flat().some(c => {
-    const t = c?.tipo ?? c;
-    return t === ESTADOS_CASILLAS.BARCO || t === ESTADOS_CASILLAS.ESCUDO;
+  const impactosParaGanar = configuracion?.numeroBarcos 
+    ? Object.entries(configuracion.numeroBarcos).reduce((total, [id, cant]) => {
+      const barcoReal = Object.values(BARCOS).find(b => b.id.toLowerCase() === id.toLowerCase());
+        return total + (barcoReal ? barcoReal.tam * cant : 0);
+    }, 0)
+  : 17; 
+
+  const aciertosLogrados = tableroEnemigo.flat().filter(c => {
+    const estado = (c?.tipo ?? c);
+    return estado === 2 || estado === 6; 
+  }).length;
+  const ganoYo = fasePartida === 'JUGANDO' && aciertosLogrados === impactosParaGanar;
+
+  const ganaRival = fasePartida === 'JUGANDO' && tableroMio.length > 0 && !tableroMio.flat().some(c => {
+    const estado = (c?.tipo ?? c);
+    return (typeof estado === 'string' && estado.startsWith("barco")) || estado === ESTADOS_CASILLAS.BARCO || (typeof c === 'object' && c.tipo === ESTADOS_CASILLAS.BARCO);
   });
 
-  const ganaRival = fasePartida === 'JUGANDO' && !tableroMio.flat().some(c => {
-    const t = c?.tipo ?? c;
-    return t === ESTADOS_CASILLAS.BARCO || t === ESTADOS_CASILLAS.ESCUDO;
-  });
-
-  const fin = fasePartida === 'JUGANDO' && (ganoYo || ganaRival);
+  const fin = ganoYo || ganaRival;
 
   useEffect(() => {
     if (fin) {
@@ -63,73 +122,39 @@ function JuegoPrivada({ alSalir, configuracion }) {
   useEffect(() => {
     //encendemos comunicaciones y nos unimos a la sala
     socketService.conectar();
-    socketService.unirsePartida(codigoSala);
+    //si tenemos codigo nos unimos
+    if (codigoSala) {
+      socketService.unirseSalaPrivada(codigoSala); 
+    }
 
-    //conexion del rival
-    socketService.onPartidaLista(() => {
-       console.log("¡Rival detectado en el radar! Posiciones de combate.");
+    //cuando el rival mete el codigo
+    socketService.onGuestConectado((datos) => {
+       console.log("¡Rival conectado!", datos.username);
        prepararPartida();
-       setFasePartida('JUGANDO');
+       setFasePartida('COLOCANDO');
     });
 
-    //disparos entrantes
-    socketService.onRecibirDisparo((datos) => {
-       //el backend nos enviara las coordenadas f y c
-       const { f, c } = datos;
-       let impactoEnBarco = false;
-       let resultadoImpacto = ESTADOS_CASILLAS.AGUA;
-
-       setTableroMio((tableroActual) => {
-          const nuevoTablero = tableroActual.map(fila => [...fila]);
-          const celdaAtacada = nuevoTablero[f][c];
-          const tipo = celdaAtacada?.tipo ?? celdaAtacada;
-
-          let resultadoImpacto = ESTADOS_CASILLAS.AGUA;
-
-          if (tipo === ESTADOS_CASILLAS.BARCO) {
-            impactoEnBarco = true;
-            resultadoImpacto = ESTADOS_CASILLAS.TOCADO;
-            nuevoTablero[f][c] = typeof celdaAtacada === 'object' ? { ...celdaAtacada, tipo: ESTADOS_CASILLAS.TOCADO } : ESTADOS_CASILLAS.TOCADO;
-            const celdasDelBarco = obtenerCeldasBarcoCompleto(nuevoTablero, f, c);
-            const estaHundido = celdasDelBarco.every(([bf, bc]) => {
-              const t = nuevoTablero[bf][bc]?.tipo ?? nuevoTablero[bf][bc];
-              return t === ESTADOS_CASILLAS.TOCADO || t === ESTADOS_CASILLAS.HUNDIDO;
-            }); 
-
-            if (estaHundido) {
-              resultadoImpacto = ESTADOS_CASILLAS.HUNDIDO;
-              celdasDelBarco.forEach(([bf, bc]) => {
-                const c_obj = nuevoTablero[bf][bc];
-                nuevoTablero[bf][bc] = typeof c_obj === 'object' 
-                  ? { ...c_obj, tipo: ESTADOS_CASILLAS.HUNDIDO } 
-                  : ESTADOS_CASILLAS.HUNDIDO;
-              });
-            }
-          } else if (tipo === ESTADOS_CASILLAS.VACIO) {
-            nuevoTablero[f][c] = ESTADOS_CASILLAS.AGUA;
-          }
-
-
-          //le decimos al backend si nos ha dado o ha sido agua para que actualice su pantalla
-          socketService.enviarResultadoDisparo({ 
-            salaId: codigoSala, 
-            f: f, 
-            c: c, 
-            resultado: resultadoImpacto 
-          });
-
-          return nuevoTablero;
-       });
-
-       setTimeout(() => {
-         if (!impactoEnBarco) setTurnoMio(true);
-       }, 0);
+    socketService.onPartidaEncontrada(() => {
+       setFasePartida('COLOCANDO');
     });
+
+    // RECEPCIÓN DE DATOS (Turnos e Impactos)
+    const manejarActualizacion = (datos) => {
+      setTableroMio(prev => adaptarTablero(datos.tablero, prev));
+      setTableroEnemigo(prev => adaptarTablero(datos.tableroRival, prev));
+      if (datos.inventario) setInventarioMio(adaptarInventario(datos.inventario));
+      setTurnoMio(datos.tuTurno);
+      
+      setFasePartida(f => (f === 'ESPERANDO_LISTO_RIVAL' || f === 'COLOCANDO') ? 'JUGANDO' : f);
+    };
+
+    socketService.onTuTurno(manejarActualizacion);
+    socketService.onActualizarEstado(manejarActualizacion);
 
     return () => {
-       //si creamos metodo para abandonar sala iria aquí
-       socketService.socket.off('partida_lista');
-       socketService.socket.off('recibir_disparo');
+       if (socketService) {
+           socketService.desconectar();
+       }
     };
   }, [codigoSala]);
 
@@ -263,6 +288,15 @@ function JuegoPrivada({ alSalir, configuracion }) {
       setErrorFatal(error.message);
       setCargando(false);
     }};
+
+    //iniciador para el rival
+    useEffect(() => {
+      if (configuracion?.esInvitado) {
+        console.log("🛠️ Invitado configurando partida con:", configuracion);
+        prepararPartida(configuracion.tamano, configuracion.numeroBarcos);        
+        setFasePartida('COLOCANDO'); 
+      }
+    }, []);
 
   //funcion colocacion
   const colocarBarcosAleatorios = (tablero, tamanos, numeroBarcosConfig) => {
@@ -449,28 +483,57 @@ function JuegoPrivada({ alSalir, configuracion }) {
     setPowerUpSeleccionado(null);
   };
 
-  const empezarBatalla = () => {
-    //recolectamos power-ups del jugador bajo sus barcos
-    const nuevosPUsGanados = [];
-    const copiaPowerUpsMios = powerUpsMios.map(f => [...f]);
-
-    for(let f=0; f<tamano; f++) {
-      for(let c=0; c<tamano; c++) {
-        const tipoCelda = tableroMio[f][c]?.tipo ?? tableroMio[f][c];
-        if (tipoCelda === ESTADOS_CASILLAS.BARCO && copiaPowerUpsMios[f][c]){
-          nuevosPUsGanados.push(POWER_UPS[copiaPowerUpsMios[f][c]]);
-          copiaPowerUpsMios[f][c] = null; //ya cogido, lo borramos
-        }
+  const empezarBatalla = async () => {
+    try {
+      const barcosListos = extraerBarcosDeCuadricula(tableroMio);
+      console.log("Enviando flota a la sala:", codigoSala, barcosListos);
+      
+      const res = await apiService.colocarBarcos(codigoSala, barcosListos);
+      
+      if (res.ok) {
+        const datos = await res.json();
+        setTableroMio(prev => adaptarTablero(datos.tablero, prev));
+        setTableroEnemigo(prev => adaptarTablero(datos.tableroRival, prev));
+        setInventarioMio(adaptarInventario(datos.inventario));
+        setTurnoMio(datos.tuTurno);
+        setFasePartida('JUGANDO'); 
+      } else {
+        const errorData = await res.json();
+        alert(`Fallo en formación: ${errorData.message}`);
       }
+    } catch (error) {
+      console.error("Fallo de comunicaciones:", error);
     }
-    
-    setInventarioMio(nuevosPUsGanados);
-    setPUMios(copiaPowerUpsMios);
-    setFasePartida('JUGANDO');
   };
 
   //logica disparo
-  const disparar = (f, c) => {
+  const disparar = async (f, c) => {
+    const tipoEnemigo = tableroEnemigo[f][c]?.tipo ?? tableroEnemigo[f][c];
+    const estadosBloqueados = [2, 3, 6];
+    
+    if (fasePartida !== 'JUGANDO' || !turnoMio || fin || estadosBloqueados.includes(tipoEnemigo)) return;
+    if (powerUpSeleccionado?.id === 'esc' || powerUpSeleccionado?.id === 'mine') return;
+
+    try {
+      const tipoDisparo = powerUpSeleccionado ? "boost" : "disparo";
+      const boostType = powerUpSeleccionado ? powerUpSeleccionado.id : "None";
+      
+      const res = await apiService.enviarMovimiento(codigoSala, f, c, tipoDisparo, boostType);
+      
+      if (res.ok) {
+        const datos = await res.json();
+        setTableroEnemigo(prev => adaptarTablero(datos.tableroRival, prev));
+        setTableroMio(prev => adaptarTablero(datos.tablero, prev));
+        if (datos.inventario) setInventarioMio(adaptarInventario(datos.inventario));
+        setTurnoMio(datos.tuTurno);
+        setPowerUpSeleccionado(null);
+      }
+    } catch (error) {
+      console.error("Error al disparar:", error);
+    }
+  };
+
+  /*const disparar = (f, c) => {
     const tipoEnemigo = tableroEnemigo[f][c]?.tipo ?? tableroEnemigo[f][c];
     if (fasePartida !== 'JUGANDO' || !turnoMio || fin ||
         tipoEnemigo === ESTADOS_CASILLAS.TOCADO || tipoEnemigo === ESTADOS_CASILLAS.AGUA || tipoEnemigo === ESTADOS_CASILLAS.HUNDIDO) return;
@@ -592,10 +655,10 @@ function JuegoPrivada({ alSalir, configuracion }) {
     });
 
     setPowerUpSeleccionado(null);
-  };
+  };*/
 
   //MOCK para simular que el backend nos manda un disparo
-  const simularAtaqueEnemigo = () => {
+  /*const simularAtaqueEnemigo = () => {
     try {
       let f, c, tipoActual;
       let intentos = 0;
@@ -651,7 +714,7 @@ function JuegoPrivada({ alSalir, configuracion }) {
     } catch (error) {
       console.error("Error en simulacro:", error);
     }
-  };
+  };*/
 
   if (errorFatal) {
       return (
@@ -815,15 +878,6 @@ function JuegoPrivada({ alSalir, configuracion }) {
                 alSeleccionar={setPowerUpSeleccionado}
               />
 
-              {/* boton MOCK solo para pruebas sin backend */}
-              {!turnoMio && (
-                <button 
-                  onClick={simularAtaqueEnemigo}
-                  style={{ padding: '15px 30px', background: '#eab308', color: 'black', border: 'none', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' }}
-                >
-                  [MOCK] Forzar respuesta enemiga
-                </button>
-              )}
             </div>
           )}
           {/*pantalla de fin*/}

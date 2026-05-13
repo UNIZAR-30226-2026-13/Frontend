@@ -8,6 +8,7 @@ import Perfil from './components/Perfil';
 import { useGoogleLogin } from '@react-oauth/google';
 import CrearPrivada from './components/CrearPrivada';
 import JuegoPrivada from './modos/modoPrivada';
+import apiService from './api/apiService';
 
 
 function App() {
@@ -24,10 +25,15 @@ function App() {
   // para resetear partida IA
   const [idPartida, setidPartida] = useState(0);
 
-  const manejarModo = (nuevoModo) => {
+  const manejarModo = (nuevoModo, datosExtras) => {
     if (nuevoModo === 'IA') {
       setidPartida(prev => prev + 1); // Suma 1 a la Key, forzando a React a reiniciar todo
     }
+
+    if (datosExtras) {
+      setConfigPrivada(datosExtras);
+    }
+
     setModo(nuevoModo);
   };
 
@@ -45,9 +51,47 @@ function App() {
     onError: () => alert('Error con Google')
   });
 
-  const empezarPartidaPrivada = (configuracion) => {
-    setConfigPrivada(configuracion); 
-    setModo('JUGAR_PRIVADA'); 
+  const empezarPartidaPrivada = async (configuracion) => {
+    try {
+      const configParaBackend = {
+          ranked: false,
+          size: configuracion.tamano || 10,
+          boats: [1, 2, 1, 1], 
+          boost_ratio: 0.5
+      };
+
+      const res = await apiService.crearPartidaPrivada(configParaBackend);
+      console.log("🚩 RASTREADOR 1 (Servidor responde):", res); 
+
+      const codigo = res.roomID;
+      console.log("🚩 RASTREADOR 2 (Código extraído):", codigo); 
+
+      if (codigo) {
+        const nuevaMochila = { ...configuracion, codigoSala: codigo };
+        console.log("🚩 RASTREADOR 3 (Mochila preparada):", nuevaMochila);
+        
+        setConfigPrivada(nuevaMochila);
+        setModo('JUGAR_PRIVADA');
+      } else {
+        alert("Fallo: El servidor no devolvió el código.");
+      }
+    } catch (error) {
+      console.error("Fallo al crear partida:", error);
+    }
+  };
+
+  const finalizarConfiguracionYCrear = async (ajustesFinales) => {
+    try {
+      const res = await apiService.crearPartidaPrivada(ajustesFinales);
+      const codigo = res.roomID;
+
+      if (codigo) {
+        setConfigPrivada({ codigoSala: codigo, ...ajustesFinales });
+        setModo('JUGAR_PRIVADA');
+      }
+    } catch (error) {
+      alert("Error al crear la sala con esos ajustes");
+    }
   };
 
   return (

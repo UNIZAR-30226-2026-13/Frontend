@@ -32,6 +32,8 @@ function Menu({ alElegir, usuario }) {
   }, []);
 
   const [buscando, setBuscando] = useState(false);
+  const [menuPrivadaActivo, setMenuPrivadaActivo] = useState(false);
+  const [codigoSalaEntrada, setCodigoSalaEntrada] = useState('');
   useEffect(() => {
     socketService.conectar(); //conexion socket
     socketService.unirseSalaPrivada();  //unirse a sala personal
@@ -65,6 +67,48 @@ function Menu({ alElegir, usuario }) {
     } catch (error) {
         console.error("Fallo de comunicaciones al buscar partida:", error);
         setBuscando(false);
+    }
+  };
+
+  const manejarCrearPrivada = () => {
+    alElegir('PRIVADA'); 
+  };
+
+  const manejarUnirsePrivada = async () => {
+    if (!codigoSalaEntrada) return alert("Introduce un código.");
+    
+    try {
+      const res = await apiService.unirsePartidaPrivada(codigoSalaEntrada.trim());
+      
+      if (res.ok) {
+          const data = await res.json(); 
+          console.log("📡 DATOS RECIBIDOS DEL BACKEND:", data);
+
+          const s = data.settings?.gameSettings || data.settings || {};       
+
+          const configReal = {
+              codigoSala: codigoSalaEntrada.trim(),
+              tamano: s.board_size || s.size || 10,
+              numeroBarcos: {
+                  FRA: s.two_count || (s.boats && s.boats[0]) || 1,
+                  SUB: s.three_count || (s.boats && s.boats[1]) || 1,
+                  ACO: s.four_count || (s.boats && s.boats[2]) || 1,
+                  POR: s.five_count || (s.boats && s.boats[3]) || 1
+              },
+              esInvitado: true
+          };
+
+          console.log("✅ MOCHILA FINAL DEL INVITADO:", configReal);
+          alElegir('JUGAR_PRIVADA', configReal);
+
+          alElegir('JUGAR_PRIVADA', configReal);
+          
+      } else {
+          const errorMsg = await res.json();
+          alert(`Acceso Denegado: ${errorMsg.message}`);
+      }
+    } catch (error) {
+      console.error("Error en el acceso:", error);
     }
   };
 
@@ -127,32 +171,48 @@ function Menu({ alElegir, usuario }) {
         flexDirection: 'column',
         gap: '50px'
       }}>
-        {/*botones de los modos*/}
-        <button 
-          onClick={() => alElegir('1VS1')} 
-          style={botonHeroStyle}
-        >
-          1 VS 1
-        </button>
+        
+          {!menuPrivadaActivo ? (
+            <>
+                <button onClick={() => alElegir('1VS1')} style={botonHeroStyle}>1 VS 1</button>
+                <div style={{ display: 'flex', gap: '30px' }}>
+                    <button onClick={() => alElegir('IA')} style={botonStyle}>JUGAR VS IA</button>
+                    <button onClick={() => setMenuPrivadaActivo(true)} style={botonStyle}>PARTIDA PRIVADA</button>
+                </div>
+            </>
+        ) : (
+            <div style={{ 
+                background: '#222', padding: '40px', borderRadius: '15px', border: '2px solid #555',
+                display: 'flex', flexDirection: 'column', gap: '20px', width: '400px', textAlign: 'center'
+            }}>
+                <h2 style={{ margin: 0, color: '#3b82f6' }}>ZONA RESTRINGIDA</h2>
+                
+                <button onClick={manejarCrearPrivada} style={{...botonStyle, width: '100%', background: '#10b981', borderColor: '#059669'}}>
+                    CREAR SALA NUEVA
+                </button>
+                
+                <div style={{ color: '#888', fontWeight: 'bold' }}>--- O ---</div>
+                
+                <input 
+                    type="text" 
+                    placeholder="INTRODUCIR CÓDIGO" 
+                    value={codigoSalaEntrada}
+                    onChange={(e) => setCodigoSalaEntrada(e.target.value.toUpperCase())}
+                    style={{
+                        padding: '15px', fontSize: '20px', textAlign: 'center', borderRadius: '5px',
+                        border: '2px solid #555', background: '#111', color: '#fff', textTransform: 'uppercase', letterSpacing: '5px'
+                    }}
+                />
+                
+                <button onClick={manejarUnirsePrivada} style={{...botonStyle, width: '100%', background: '#3b82f6', borderColor: '#2563eb'}}>
+                    UNIRSE A SALA
+                </button>
 
-        <div style={{
-          display: 'flex',
-          gap: '30px'
-        }}>
-          <button 
-            onClick={() => alElegir('IA')} 
-            style={botonStyle}
-          >
-            JUGAR VS IA
-          </button>
-
-          <button 
-            onClick={() => alElegir('PRIVADA')} 
-            style={botonStyle}
-          >
-            PARTIDA PRIVADA
-          </button>
-        </div>
+                <button onClick={() => setMenuPrivadaActivo(false)} style={{...botonStyle, width: '100%', marginTop: '20px', padding: '10px', fontSize: '16px'}}>
+                    ← Volver
+                </button>
+            </div>
+        )}
       </div>
     </div>
   );

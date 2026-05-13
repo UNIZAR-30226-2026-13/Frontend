@@ -43,7 +43,7 @@ class ApiService {
 
     //partida privada
     async crearPartidaPrivada(configuracion) {
-        const res = await fetch(`${API_URL}/partida/crear`, fetchConfig('POST', configuracion));
+        const res = await fetch(`${API_URL}/partida/crear`, fetchConfig('POST', { gameSettings: configuracion }));
         return res.json();
     }
 

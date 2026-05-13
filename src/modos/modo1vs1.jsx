@@ -126,17 +126,26 @@ function Modo1vs1({ salaId, alSalir, usuario }) {
 
   const aciertosLogrados = enemigos.flat().filter(c => {
       const estado = (c?.tipo ?? c);
-      return estado === "tocado" || estado === "hundido";
+      return estado === 2 || estado === 6;
   }).length;
 
   const ganoYo = fase === 'JUGANDO' && aciertosLogrados === TOTAL_IMPACTOS_PARA_GANAR;
 
   const ganaEnemigo = fase === 'JUGANDO' && mios.length > 0 && !mios.flat().some(c => {
       const estado = (c?.tipo ?? c);
-      return estado === "barco" || estado === ESTADOS_CASILLAS.BARCO || (typeof c === 'object' && c.tipo === 1);
+      return (typeof estado === 'string' && estado.startsWith("barco")) || estado === ESTADOS_CASILLAS.BARCO || (typeof c === 'object' && c.tipo === 1);
   });
 
   const fin = ganoYo || ganaEnemigo;
+
+  useEffect(() => {
+    if (fin) {
+      const timer = setTimeout(() => {
+        setMostrarFin(true);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [fin, ganoYo, ganaEnemigo]);
 
   //temporizador para mostrar el fin partida
   /*useEffect(() => {
@@ -239,18 +248,24 @@ function Modo1vs1({ salaId, alSalir, usuario }) {
     //servidor nos dice que es nuestro turno
     socketService.onTuTurno((datos) => {
       console.log("Nuestro turno:", datos);
-      setMios(datos.tablero);
-      setEnemigos(datos.tableroRival);
+      setMios(prevMios => adaptarTablero(datos.tablero, prevMios));
+      setEnemigos(prevEnemigos => adaptarTablero(datos.tableroRival, prevEnemigos));
       if (datos.inventario) setInventarioMio(adaptarInventario(datos.inventario));
-      setMiTurno(true);
+      setMiTurno(datos.tuTurno !== undefined ? datos.tuTurno : true);
+      setFase(faseAnterior => 
+        (faseAnterior === 'ESPERANDO_LISTO_RIVAL' || faseAnterior === 'COLOCANDO') ? 'JUGANDO' : faseAnterior
+      );
     });
-    //recibimos disparo pero aun no es nuestro turno
+    //recibimos actualizacion
     socketService.onActualizarEstado((datos) => {
       console.log("Impacto enemigo recibido:", datos);
-      setMios(datos.tablero);
-      setEnemigos(datos.tableroRival);
+      setMios(prevMios => adaptarTablero(datos.tablero, prevMios));
+      setEnemigos(prevEnemigos => adaptarTablero(datos.tableroRival, prevEnemigos));
       if (datos.inventario) setInventarioMio(adaptarInventario(datos.inventario));
-      setMiTurno(false);
+      setMiTurno(datos.tuTurno);
+      setFase(faseAnterior => 
+        (faseAnterior === 'ESPERANDO_LISTO_RIVAL' || faseAnterior === 'COLOCANDO') ? 'JUGANDO' : faseAnterior
+      );
     });
 
     if (fase === 'ESPERANDO_RIVAL') {
@@ -269,20 +284,10 @@ function Modo1vs1({ salaId, alSalir, usuario }) {
         } catch (error) {
           console.error("Fallo crítico de comunicaciones:", error);
           alert("Error al conectar con el cuartel general.");
-          alSalir(); // Te saca al menú si el servidor está caído
+          alSalir();
         }
       };
-      
       buscarOponente();
-    }
-
-    //MOCK temporal para colocacion
-    if (fase === 'ESPERANDO_LISTO_RIVAL') {
-      const timerRivalListo = setTimeout(() => {
-        setFase('JUGANDO');
-        setMiTurno(true); 
-      }, 2500); 
-      return () => clearTimeout(timerRivalListo);
     }
 
     return () => {
@@ -518,6 +523,39 @@ function Modo1vs1({ salaId, alSalir, usuario }) {
     return inventarioArray;
   };
 
+  //adapto graficos del tablero a backend
+  const adaptarTablero = (tableroServidor, tableroLocal) => {
+    if (!tableroServidor) return [];
+    
+    return tableroServidor.map((fila, f) =>
+      fila.map((celdaServidor, c) => {
+        const celdaLocal = tableroLocal && tableroLocal[f] ? tableroLocal[f][c] : 0;
+
+        if (typeof celdaServidor === 'string' && celdaServidor.startsWith("barco") && celdaLocal && typeof celdaLocal === 'object') {
+          return celdaLocal;
+        }
+
+        let estadoBase = celdaServidor;
+        if (typeof celdaServidor === 'string') {
+            if (celdaServidor.startsWith("barco")) estadoBase = "barco";
+            if (celdaServidor.startsWith("tocado")) estadoBase = "tocado";
+        }
+
+        switch (estadoBase) {
+          case "agua": return 0;
+          case "nada": return 3;
+          case "barco": return 1;
+          case "tocado": return 2;
+          case "hundido": return 6;
+          case "minaActiva": return 4;
+          case "escudo(barco)":
+          case "escudo(agua)": return 5;
+          default: return 0;
+        }
+      })
+    );
+  };
+
   const confirmarTablero = async () => {
     try {
       console.log("Mapa interno del tablero:", mios);
@@ -532,15 +570,13 @@ function Modo1vs1({ salaId, alSalir, usuario }) {
         console.log("Flota aprobada por el servidor:", datos);
         
         //servidor devuelve tablero
-        setMios(datos.tablero); 
-        setEnemigos(datos.tableroRival);
+        setMios(prevMios => adaptarTablero(datos.tablero, prevMios));
+        setEnemigos(prevEnemigos => adaptarTablero(datos.tableroRival, prevEnemigos));
         setInventarioMio(adaptarInventario(datos.inventario));
+        setMiTurno(datos.tuTurno);
         
-        setFase('ESPERANDO_LISTO_RIVAL'); 
-      } else {
-        const errorData = await res.json();
-        alert(`Fallo en la formación: ${errorData.message}`);
-      }
+        setFase('JUGANDO'); 
+      } 
     } catch (error) {
       console.error("Error en las comunicaciones de despliegue:", error);
     }
@@ -551,7 +587,8 @@ function Modo1vs1({ salaId, alSalir, usuario }) {
     //controles
     if (fase !== 'JUGANDO' || !miTurno || fin || estadoPausa) return;
     const tipoEnemigo = enemigos[f][c]?.tipo ?? enemigos[f][c];
-    if (tipoEnemigo === 'tocado' || tipoEnemigo === 'agua' || tipoEnemigo === 'hundido') return;
+    const estadosBloqueados = [2, 3, 6];
+    if (estadosBloqueados.includes(tipoEnemigo)) return;
     if (powerUpSeleccionado?.id === 'esc' || powerUpSeleccionado?.id === 'mine') return;
 
     try {
@@ -564,8 +601,8 @@ function Modo1vs1({ salaId, alSalir, usuario }) {
       if (res.ok) {
         const datos = await res.json();
         //servidor nos devuelve resultado
-        setEnemigos(datos.tableroRival);
-        setMios(datos.tablero); 
+        setEnemigos(prevEnemigos => adaptarTablero(datos.tableroRival, prevEnemigos));
+        setMios(prevMios => adaptarTablero(datos.tablero, prevMios));
         if (datos.inventario) setInventarioMio(adaptarInventario(datos.inventario));
         setMiTurno(datos.tuTurno);
         setPowerUpSeleccionado(null);
