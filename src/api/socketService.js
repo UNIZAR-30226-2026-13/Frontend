@@ -10,17 +10,26 @@ class SocketService {
   conectar() {
     console.log('Connecting to socket at:', SOCKET_URL);
     if (!this.socket) {
+      // Get auth token from cookies
+      const cookies = document.cookie.split(';').reduce((acc, cookie) => {
+        const [key, value] = cookie.trim().split('=');
+        acc[key] = value;
+        return acc;
+      }, {});
+      const token = cookies.auth;
+
       this.socket = io(SOCKET_URL, {
         withCredentials: true,
-        transports: ['polling', 'websocket']
+        transports: ['polling', 'websocket'],
+        auth: token ? { token } : undefined
       });
 
       this.socket.on('connect', () => {
         console.log('Socket connected:', this.socket.id);
       });
 
-      this.socket.on('disconnect', () => {
-        console.log('Socket disconnected');
+      this.socket.on('connect_error', (error) => {
+        console.log('Socket connection error:', error);
       });
     }
   }
