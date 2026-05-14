@@ -1,4 +1,5 @@
 const SOCKET_URL = "/api";
+const API_URL = import.meta.env.VITE_API_URL || "/api";
 
 const fetchConfig = (method, body = null) => {
     const config = {
@@ -38,7 +39,7 @@ class ApiService {
     async enviarMovimiento(partidaId, fila, columna, tipo = "disparo", boostType = "None") {
         const body = { type: tipo, f: fila, c: columna, boostType };
         const res = await fetch(`${API_URL}/partida/${partidaId}/movimiento`, fetchConfig('PUT', body));
-        return res; 
+        return res;
     }
 
     //partida privada
@@ -49,7 +50,7 @@ class ApiService {
 
     async unirsePartidaPrivada(partidaId) {
         const res = await fetch(`${API_URL}/partida/join/${partidaId}`, fetchConfig('POST'));
-        return res; 
+        return res;
     }
 
     //perfil e historial
@@ -60,7 +61,7 @@ class ApiService {
 
     async editarPerfil(datos) {
         const res = await fetch(`${API_URL}/usuario/configuracion`, fetchConfig('PUT', datos));
-        return res; 
+        return res;
     }
 
     async obtenerHistorialJugador(idJugador) {
