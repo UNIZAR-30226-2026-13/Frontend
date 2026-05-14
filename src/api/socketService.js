@@ -10,10 +10,7 @@ class SocketService {
   conectar() {
     console.log('Connecting to socket at:', SOCKET_URL);
     if (!this.socket) {
-      const token = localStorage.getItem('authToken');
-      console.log('Auth token found:', token ? 'yes' : 'no');
-
-      const token = localStorage.getItem('authToken');
+      const token = localStorage.getItem('token');
       console.log('Auth token found:', token ? 'yes' : 'no');
 
       this.socket = io(SOCKET_URL, {
