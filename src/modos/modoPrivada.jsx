@@ -125,8 +125,7 @@ function JuegoPrivada({ alSalir, configuracion ,usuario}) {
     socketService.conectar();
     //si tenemos codigo nos unimos
     if (codigoSala) {
-      console.log('Joining room for user:', usuario.username, 'esInvitado:', configuracion.esInvitado);
-      socketService.unirseSalaPrivada();
+      socketService.unirseSalaPrivada(usuario);
     }
 
     //cuando el rival mete el codigo
