@@ -121,17 +121,15 @@ function JuegoPrivada({ alSalir, configuracion ,usuario}) {
 
 
   useEffect(() => {
+    if (!usuario?.username || !codigoSala) return;
+
     socketService.conectar();
 
-    // Listen for socket connection before joining room
     const socket = socketService.socket;
     if (!socket) return;
 
     const handleConnect = () => {
-      console.log('Socket ready, joining room:', usuario?.username);
-      if (codigoSala && usuario?.username) {
-        socketService.unirseSalaPrivada(usuario.username);
-      }
+      socketService.unirseSalaPrivada(usuario.username);
     };
 
     if (socket.connected) {
