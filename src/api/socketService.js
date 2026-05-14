@@ -11,7 +11,7 @@ class SocketService {
     if (!this.socket) {
       this.socket = io(SOCKET_URL, {
         withCredentials: true,
-        transports: ['polling']
+        transports: ['polling', 'websocket']
       });
     }
   }
