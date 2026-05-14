@@ -124,14 +124,14 @@ function JuegoPrivada({ alSalir, configuracion ,usuario}) {
     //encendemos comunicaciones y nos unimos a la sala
     socketService.conectar();
     //si tenemos codigo nos unimos
-    if (codigoSala) {
-      socketService.unirseSalaPrivada(usuario);
+    if (codigoSala && usuario?.username) {
+      socketService.unirseSalaPrivada(usuario.username);
     }
 
     //cuando el rival mete el codigo
     if (!configuracion.esInvitado) {
       socketService.onGuestConectado((datos) => {
-        console.log("¡Rival conectado!", datos.username);
+        console.log("¡Rival conectado!", datos);
         prepararPartida();
         setFasePartida('COLOCANDO');
       });
