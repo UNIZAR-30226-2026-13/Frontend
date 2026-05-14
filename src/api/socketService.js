@@ -8,10 +8,19 @@ class SocketService {
   }
 
   conectar() {
+    console.log('Connecting to socket at:', SOCKET_URL);
     if (!this.socket) {
       this.socket = io(SOCKET_URL, {
         withCredentials: true,
         transports: ['polling', 'websocket']
+      });
+
+      this.socket.on('connect', () => {
+        console.log('Socket connected:', this.socket.id);
+      });
+
+      this.socket.on('disconnect', () => {
+        console.log('Socket disconnected');
       });
     }
   }

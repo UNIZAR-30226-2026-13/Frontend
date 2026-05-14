@@ -34,9 +34,9 @@ function JuegoPrivada({ alSalir, configuracion ,usuario}) {
   const [celdasSombra, setCeldasSombra] = useState([]);
 
   //estados powerups
-  const [powerUpsMios, setPUMios] = useState([]); 
-  const [powerUpsEnemigos, setPUEnemigos] = useState([]); 
-  const [inventarioMio, setInventarioMio] = useState([]); 
+  const [powerUpsMios, setPUMios] = useState([]);
+  const [powerUpsEnemigos, setPUEnemigos] = useState([]);
+  const [inventarioMio, setInventarioMio] = useState([]);
   const [powerUpSeleccionado, setPowerUpSeleccionado] = useState(null);
   const [resultadoRadar, setResultadoRadar] = useState(null);
 
@@ -57,7 +57,7 @@ function JuegoPrivada({ alSalir, configuracion ,usuario}) {
     if (!inventarioBackend) return [];
     const inventarioArray = [];
     Object.entries(inventarioBackend).forEach(([boostName, cantidad]) => {
-      for (let i = 0; i < cantidad; i++) inventarioArray.push({ id: boostName }); 
+      for (let i = 0; i < cantidad; i++) inventarioArray.push({ id: boostName });
     });
     return inventarioArray;
   };
@@ -90,16 +90,16 @@ function JuegoPrivada({ alSalir, configuracion ,usuario}) {
   };
 
   //logica fin de partida
-  const impactosParaGanar = configuracion?.numeroBarcos 
+  const impactosParaGanar = configuracion?.numeroBarcos
     ? Object.entries(configuracion.numeroBarcos).reduce((total, [id, cant]) => {
       const barcoReal = Object.values(BARCOS).find(b => b.id.toLowerCase() === id.toLowerCase());
         return total + (barcoReal ? barcoReal.tam * cant : 0);
     }, 0)
-  : 17; 
+  : 17;
 
   const aciertosLogrados = tableroEnemigo.flat().filter(c => {
     const estado = (c?.tipo ?? c);
-    return estado === 2 || estado === 6; 
+    return estado === 2 || estado === 6;
   }).length;
   const ganoYo = fasePartida === 'JUGANDO' && aciertosLogrados === impactosParaGanar;
 
@@ -125,15 +125,18 @@ function JuegoPrivada({ alSalir, configuracion ,usuario}) {
     socketService.conectar();
     //si tenemos codigo nos unimos
     if (codigoSala) {
-      socketService.unirseSalaPrivada(codigoSala); 
+      console.log('Joining room for user:', usuario.username, 'esInvitado:', configuracion.esInvitado);
+      socketService.unirseSalaPrivada();
     }
 
     //cuando el rival mete el codigo
-    socketService.onGuestConectado((datos) => {
-       console.log("¡Rival conectado!", datos.username);
-       prepararPartida();
-       setFasePartida('COLOCANDO');
-    });
+    if (!configuracion.esInvitado) {
+      socketService.onGuestConectado((datos) => {
+        console.log("¡Rival conectado!", datos.username);
+        prepararPartida();
+        setFasePartida('COLOCANDO');
+      });
+    }
 
     socketService.onPartidaEncontrada(() => {
        setFasePartida('COLOCANDO');
@@ -145,7 +148,7 @@ function JuegoPrivada({ alSalir, configuracion ,usuario}) {
       setTableroEnemigo(prev => adaptarTablero(datos.tableroRival, prev));
       if (datos.inventario) setInventarioMio(adaptarInventario(datos.inventario));
       setTurnoMio(datos.tuTurno);
-      
+
       setFasePartida(f => (f === 'ESPERANDO_LISTO_RIVAL' || f === 'COLOCANDO') ? 'JUGANDO' : f);
     };
 
@@ -209,7 +212,7 @@ function JuegoPrivada({ alSalir, configuracion ,usuario}) {
         setTableroMio(nuevoMio);
         //setTableroEnemigo(nuevoEnemigo);
         setCargando(false);
-        
+
       } catch (error) { //atrapamos error
         console.error("Fallo del Sistema:", error);
         setErrorFatal(error.message);
@@ -229,7 +232,7 @@ function JuegoPrivada({ alSalir, configuracion ,usuario}) {
       //mapas invisibles de power-ups con los ajustes del creador de la partida
       const numPUs = configuracion?.numPowerups || 0;
       const puCogidos = configuracion?.powerupsCogidos || [];
-      
+
       const puMios = generarTabPowerUps(tamano, numPUs, puCogidos);
       const puEnemigos = generarTabPowerUps(tamano, numPUs, puCogidos);
       setPUMios(puMios);
@@ -261,7 +264,7 @@ function JuegoPrivada({ alSalir, configuracion ,usuario}) {
       setTableroMio(nuevoMio);
       setTableroEnemigo(nuevoEnemigo);
       setCargando(false);
-      
+
       /*let usarFlotaEmergencia = false;
       if (!numeroBarcos) {
           usarFlotaEmergencia = true;
@@ -283,7 +286,7 @@ function JuegoPrivada({ alSalir, configuracion ,usuario}) {
             }
           });
       }*/
-      
+
     } catch (error) {
       console.error("Fallo del Sistema:", error);
       setErrorFatal(error.message);
@@ -294,8 +297,8 @@ function JuegoPrivada({ alSalir, configuracion ,usuario}) {
     useEffect(() => {
       if (configuracion?.esInvitado) {
         console.log("🛠️ Invitado configurando partida con:", configuracion);
-        prepararPartida();        
-        setFasePartida('COLOCANDO'); 
+        prepararPartida();
+        setFasePartida('COLOCANDO');
       }
     }, []);
 
@@ -360,10 +363,10 @@ function JuegoPrivada({ alSalir, configuracion ,usuario}) {
             const colD = orientacion === 'H' ? c + i : c;
             if (filaD < tamano && colD < tamano) {
               nuevasCeldas.push(`${filaD}-${colD}`);
-            } 
+            }
           }
         }
-      } 
+      }
       else if (fasePartida === 'JUGANDO' && turnoMio) {
         const esPowerUpDefensivo = powerUpSeleccionado?.id === 'esc' || powerUpSeleccionado?.id === 'mine';
         if (esPowerUpDefensivo) {
@@ -379,23 +382,23 @@ function JuegoPrivada({ alSalir, configuracion ,usuario}) {
             const filaMax = f < mitad ? mitad : tamano;
             const colMin  = c < mitad ? 0 : mitad;
             const colMax  = c < mitad ? mitad : tamano;
-            
+
             for (let i = filaMin; i < filaMax; i++) {
               for (let j = colMin; j < colMax; j++) {
                 nuevasCeldas.push(`${i}-${j}`);
               }
             }
-          } 
+          }
           else if (powerUpSeleccionado) {
             //para el resto de power-ups
             nuevasCeldas = [...obtenerHoverPowerUp(f, c, powerUpSeleccionado, tamano)];
-          } 
+          }
           else {
             nuevasCeldas = [`${f}-${c}`];
           }
         }
       }
-      
+
       setCeldasSombra(nuevasCeldas);
     } catch (err) {
       console.error("Error Hover:", err);
@@ -405,7 +408,7 @@ function JuegoPrivada({ alSalir, configuracion ,usuario}) {
   const obtenerCeldasBarcoCompleto = (tablero, f, c) => {
     const celdaInicial = tablero[f][c];
     if (typeof celdaInicial !== 'object' || celdaInicial.indice === undefined) return [[f, c]];
-    
+
     const { orientacion, total, indice } = celdaInicial;
     const celdas = [];
 
@@ -438,22 +441,22 @@ function JuegoPrivada({ alSalir, configuracion ,usuario}) {
         alert("Casilla ocupada, elige otra posición.");
         return;
       }
-      celdasAOCupar.push([filaD, colD, i]); 
+      celdasAOCupar.push([filaD, colD, i]);
     }
 
-    celdasAOCupar.forEach(([fd, cd, indice]) => { 
+    celdasAOCupar.forEach(([fd, cd, indice]) => {
       nuevoTablero[fd][cd] = {
         tipo: ESTADOS_CASILLAS.BARCO,
         barcoId: barcoSeleccionado.id,
         orientacion: orientacion,
-        indice: indice, 
+        indice: indice,
         total: barcoSeleccionado.tam
       };
     });
 
     setTableroMio(nuevoTablero);
     setBarcosColocados([...barcosColocados, barcoSeleccionado]);
-    setBarcoSeleccionado(null); 
+    setBarcoSeleccionado(null);
     setCeldasSombra([]);
   };
 
@@ -488,16 +491,16 @@ function JuegoPrivada({ alSalir, configuracion ,usuario}) {
     try {
       const barcosListos = extraerBarcosDeCuadricula(tableroMio);
       console.log("Enviando flota a la sala:", codigoSala, barcosListos);
-      
+
       const res = await apiService.colocarBarcos(codigoSala, barcosListos);
-      
+
       if (res.ok) {
         const datos = await res.json();
         setTableroMio(prev => adaptarTablero(datos.tablero, prev));
         setTableroEnemigo(prev => adaptarTablero(datos.tableroRival, prev));
         setInventarioMio(adaptarInventario(datos.inventario));
         setTurnoMio(datos.tuTurno);
-        setFasePartida('JUGANDO'); 
+        setFasePartida('JUGANDO');
       } else {
         const errorData = await res.json();
         alert(`Fallo en formación: ${errorData.message}`);
@@ -511,16 +514,16 @@ function JuegoPrivada({ alSalir, configuracion ,usuario}) {
   const disparar = async (f, c) => {
     const tipoEnemigo = tableroEnemigo[f][c]?.tipo ?? tableroEnemigo[f][c];
     const estadosBloqueados = [2, 3, 6];
-    
+
     if (fasePartida !== 'JUGANDO' || !turnoMio || fin || estadosBloqueados.includes(tipoEnemigo)) return;
     if (powerUpSeleccionado?.id === 'esc' || powerUpSeleccionado?.id === 'mine') return;
 
     try {
       const tipoDisparo = powerUpSeleccionado ? "boost" : "disparo";
       const boostType = powerUpSeleccionado ? powerUpSeleccionado.id : "None";
-      
+
       const res = await apiService.enviarMovimiento(codigoSala, f, c, tipoDisparo, boostType);
-      
+
       if (res.ok) {
         const datos = await res.json();
         setTableroEnemigo(prev => adaptarTablero(datos.tableroRival, prev));
@@ -538,7 +541,7 @@ function JuegoPrivada({ alSalir, configuracion ,usuario}) {
     const tipoEnemigo = tableroEnemigo[f][c]?.tipo ?? tableroEnemigo[f][c];
     if (fasePartida !== 'JUGANDO' || !turnoMio || fin ||
         tipoEnemigo === ESTADOS_CASILLAS.TOCADO || tipoEnemigo === ESTADOS_CASILLAS.AGUA || tipoEnemigo === ESTADOS_CASILLAS.HUNDIDO) return;
-    
+
     // MOCK para que no de error
     if (socketService?.socket?.connected && !powerUpSeleccionado) {
         socketService.disparar(codigoSala, f, c);
@@ -547,7 +550,7 @@ function JuegoPrivada({ alSalir, configuracion ,usuario}) {
     //logica radar
     if (powerUpSeleccionado?.id === 'rad') {
       const resultado = usarRadar(f, c, tableroEnemigo, tamano);
-      setResultadoRadar(resultado); 
+      setResultadoRadar(resultado);
       setInventarioMio(procesarInventario(inventarioMio, powerUpSeleccionado, []));
       setPowerUpSeleccionado(null);
       return;
@@ -556,7 +559,7 @@ function JuegoPrivada({ alSalir, configuracion ,usuario}) {
     //logica tornado
     if (powerUpSeleccionado?.id === 'tor') {
       const celdasImpacto = usarTornado(f, c, tableroEnemigo, tamano);
-      
+
       setTableroEnemigo((tableroActual) => {
         const nuevoEnemigos = tableroActual.map(fila => [...fila]);
         const copiaPUEnemigos = powerUpsEnemigos.map(fila => [...fila]);
@@ -567,9 +570,9 @@ function JuegoPrivada({ alSalir, configuracion ,usuario}) {
           const celdaTor = nuevoEnemigos[tf][tc];
           const tipoTor = celdaTor?.tipo ?? celdaTor;
           const esBarco = tipoTor === ESTADOS_CASILLAS.BARCO;
-          
+
           nuevoEnemigos[tf][tc] = esBarco ? (typeof celdaTor === 'object' ? { ...celdaTor, tipo: ESTADOS_CASILLAS.TOCADO } : ESTADOS_CASILLAS.TOCADO) : ESTADOS_CASILLAS.AGUA;
-          
+
           if (esBarco) {
             acierto = true;
             const celdasDelBarco = obtenerCeldasBarcoCompleto(nuevoEnemigos, tf, tc);
@@ -588,7 +591,7 @@ function JuegoPrivada({ alSalir, configuracion ,usuario}) {
 
         setInventarioMio(procesarInventario(inventarioMio, powerUpSeleccionado, idsEncontrados));
         setPUEnemigos(copiaPUEnemigos);
-        if (!acierto) setTurnoMio(false); 
+        if (!acierto) setTurnoMio(false);
         return nuevoEnemigos;
       });
       setPowerUpSeleccionado(null);
@@ -598,7 +601,7 @@ function JuegoPrivada({ alSalir, configuracion ,usuario}) {
     // MOCK logica de jugabilidad
     setTableroEnemigo((tableroActual) => {
         const nuevoEnemigos = tableroActual.map(fila => [...fila]);
-        const copiaPUEnemigos = powerUpsEnemigos.map(fila => [...fila]); 
+        const copiaPUEnemigos = powerUpsEnemigos.map(fila => [...fila]);
         let aciertoGlobalBarco = false;
         const idsEncontrados = [];
 
@@ -611,8 +614,8 @@ function JuegoPrivada({ alSalir, configuracion ,usuario}) {
             if (tipoActual === ESTADOS_CASILLAS.TOCADO || tipoActual === ESTADOS_CASILLAS.AGUA || tipoActual === ESTADOS_CASILLAS.HUNDIDO) return;
 
             if (tipoActual === ESTADOS_CASILLAS.BARCO) {
-                aciertoGlobalBarco = true; 
-                nuevoEnemigos[df][dc] = typeof celdaEnemiga === 'object' 
+                aciertoGlobalBarco = true;
+                nuevoEnemigos[df][dc] = typeof celdaEnemiga === 'object'
                     ? { ...celdaEnemiga, tipo: ESTADOS_CASILLAS.TOCADO } : ESTADOS_CASILLAS.TOCADO;
 
                 const celdasDelBarco = obtenerCeldasBarcoCompleto(nuevoEnemigos, df, dc);
@@ -624,7 +627,7 @@ function JuegoPrivada({ alSalir, configuracion ,usuario}) {
                 if (estaHundido) {
                     celdasDelBarco.forEach(([bf, bc]) => {
                         const c_obj = nuevoEnemigos[bf][bc];
-                        nuevoEnemigos[bf][bc] = typeof c_obj === 'object' 
+                        nuevoEnemigos[bf][bc] = typeof c_obj === 'object'
                             ? { ...c_obj, tipo: ESTADOS_CASILLAS.HUNDIDO } : ESTADOS_CASILLAS.HUNDIDO;
                     });
                 }
@@ -635,21 +638,21 @@ function JuegoPrivada({ alSalir, configuracion ,usuario}) {
             const idEncontrado = copiaPUEnemigos[df][dc];
             if (idEncontrado) {
                 idsEncontrados.push(idEncontrado);
-                copiaPUEnemigos[df][dc] = null; 
+                copiaPUEnemigos[df][dc] = null;
                 console.log("¡Power-Up interceptado!", idEncontrado);
             }
         });
 
         const inventarioActualizado = procesarInventario(inventarioMio, powerUpSeleccionado, idsEncontrados);
         setInventarioMio(inventarioActualizado);
-        setPUEnemigos(copiaPUEnemigos); 
-        
+        setPUEnemigos(copiaPUEnemigos);
+
         if (powerUpSeleccionado?.id === 'doble') {
-            aciertoGlobalBarco = true; 
+            aciertoGlobalBarco = true;
         }
 
         if (!aciertoGlobalBarco) {
-            setTurnoMio(false); 
+            setTurnoMio(false);
         }
 
         return nuevoEnemigos;
@@ -680,9 +683,9 @@ function JuegoPrivada({ alSalir, configuracion ,usuario}) {
 
         if (tipo === ESTADOS_CASILLAS.BARCO) {
           impactoEnBarco = true; //conservam turno si hay acierto
-          
-          nuevoTablero[f][c] = typeof celdaAtacada === 'object' 
-            ? { ...celdaAtacada, tipo: ESTADOS_CASILLAS.TOCADO } 
+
+          nuevoTablero[f][c] = typeof celdaAtacada === 'object'
+            ? { ...celdaAtacada, tipo: ESTADOS_CASILLAS.TOCADO }
             : ESTADOS_CASILLAS.TOCADO;
 
           const celdasDelBarco = obtenerCeldasBarcoCompleto(nuevoTablero, f, c);
@@ -694,8 +697,8 @@ function JuegoPrivada({ alSalir, configuracion ,usuario}) {
           if (estaHundido) {
             celdasDelBarco.forEach(([bf, bc]) => {
               const c_obj = nuevoTablero[bf][bc];
-              nuevoTablero[bf][bc] = typeof c_obj === 'object' 
-                ? { ...c_obj, tipo: ESTADOS_CASILLAS.HUNDIDO } 
+              nuevoTablero[bf][bc] = typeof c_obj === 'object'
+                ? { ...c_obj, tipo: ESTADOS_CASILLAS.HUNDIDO }
                 : ESTADOS_CASILLAS.HUNDIDO;
             });
             console.log("¡Han hundido nuestro barco!");
@@ -732,16 +735,16 @@ function JuegoPrivada({ alSalir, configuracion ,usuario}) {
       return (
         <div style={{ padding: '40px', color: 'white', textAlign: 'center', background: '#1a1a1a', height: '100vh' }}>
           <button onClick={alSalir} style={estiloBotonSalir}>← ABORTAR MISIÓN</button>
-          
+
           <h2 style={{ fontSize: '2rem', color: '#3b82f6' }}>SALA DE TRANSMISIÓN</h2>
           <p style={{ fontSize: '1.2rem', marginTop: '20px' }}>Pásale este código de acceso a tu almirante rival:</p>
-          
-          <div style={{ 
-            fontSize: '4rem', 
-            letterSpacing: '15px', 
-            background: '#222', 
-            padding: '20px 40px', 
-            margin: '30px auto', 
+
+          <div style={{
+            fontSize: '4rem',
+            letterSpacing: '15px',
+            background: '#222',
+            padding: '20px 40px',
+            margin: '30px auto',
             width: 'fit-content',
             borderRadius: '10px',
             border: '2px dashed #10b981',
@@ -749,13 +752,13 @@ function JuegoPrivada({ alSalir, configuracion ,usuario}) {
           }}>
             {codigoSala}
           </div>
-          
+
           <p style={{ color: '#aaa', fontSize: '1.1rem' }}>Esperando conexión enemiga...</p>
-          
-          
-          <button 
+
+
+          <button
             onClick={() => {
-              prepararPartida(); 
+              prepararPartida();
               setFasePartida('COLOCANDO');
             }}
             style={{ marginTop: '50px', padding: '15px 30px', background: '#10b981', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' }}
@@ -775,17 +778,17 @@ function JuegoPrivada({ alSalir, configuracion ,usuario}) {
 
   return (
     <div style={{ background: '#1a1a1a', color: 'white', width: '100vw', height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        
+
       <header style={{ padding: '10px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #333' }}>
         <button onClick={alSalir} style={{ background: '#ef4444', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' }}>← ABORTAR</button>
         <h2 style={{ margin: 0, fontSize: '1.5rem' }}>
-          {fasePartida === 'COLOCANDO' ? `CONFIGURACIÓN DE FLOTA (${tamano}x${tamano})` : 
+          {fasePartida === 'COLOCANDO' ? `CONFIGURACIÓN DE FLOTA (${tamano}x${tamano})` :
             (fin ? "FIN DE PARTIDA" : (fasePartida === 'JUGANDO' ? (turnoMio ? "TU TURNO" : "TURNO ENEMIGO") : "SALA DE TRANSMISIÓN"))}
         </h2>
         <div style={{ width: '80px' }}></div>
       </header>
-        
-      
+
+
       {/*resultado del radar*/}
           {resultadoRadar && (
             <div style={{
@@ -802,19 +805,19 @@ function JuegoPrivada({ alSalir, configuracion ,usuario}) {
               <div style={{ fontSize: '18px' }}>
                  <strong>{resultadoRadar.barcosRestantes}</strong> celda{resultadoRadar.barcosRestantes !== 1 ? 's' : ''} de barco
               </div>
-              <button 
+              <button
                 onClick={() => setResultadoRadar(null)}
                 style={{ marginTop: '10px', padding: '5px 12px', cursor: 'pointer', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '5px', fontSize: '13px' }}
               >Cerrar</button>
             </div>
           )}
-      
+
 
       <main style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-    
+
         {fasePartida === 'COLOCANDO' && (
           <aside style={{ width: '300px', background: '#222', padding: '20px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', borderRight: '1px solid #333', overflowY: 'auto' }}>
-            <Barcos 
+            <Barcos
               barcoSeleccionado={barcoSeleccionado}
               alSeleccionar={setBarcoSeleccionado}
               barcosColocados={barcosColocados}
@@ -838,22 +841,22 @@ function JuegoPrivada({ alSalir, configuracion ,usuario}) {
           </aside>
         )}
 
-  
+
         <section style={{ flex: 1, display: 'flex', flexDirection: fasePartida === 'COLOCANDO' ? 'column' : 'row', alignItems: 'center', justifyContent: 'center', gap: '30px', padding: '20px', position: 'relative' }}>
-          
+
           {/*mi tablero*/}
           {(fasePartida === 'COLOCANDO' || fasePartida === 'JUGANDO') && (
             //<div style={{ transform: fasePartida === 'JUGANDO' ? 'scale(0.85)' : 'scale(1)', transition: 'all 0.5s', textAlign: 'center', borderRadius: '8px' }}>
-            <div style={{ transform: 'scale(1)', transition: 'all 0.5s', textAlign: 'center', borderRadius: '8px' }}>  
+            <div style={{ transform: 'scale(1)', transition: 'all 0.5s', textAlign: 'center', borderRadius: '8px' }}>
               <h4 style={{ margin: '0 0 10px 0', color: '#aaa' }}>TU FLOTA</h4>
-              <Tablero 
+              <Tablero
                 skin={usuario?.barco || 'default'}
-                cuadricula={tableroMio} 
-                alDisparar={fasePartida === 'COLOCANDO' ? colocarBarcoManual : 
-                  (powerUpSeleccionado?.id === 'esc' ? usarEscudoEnMio : 
+                cuadricula={tableroMio}
+                alDisparar={fasePartida === 'COLOCANDO' ? colocarBarcoManual :
+                  (powerUpSeleccionado?.id === 'esc' ? usarEscudoEnMio :
                   (powerUpSeleccionado?.id === 'mine' ? usarMinaEnMio : () => {}))
                 }
-                esIA={false} 
+                esIA={false}
                 celdasSombra={(fasePartida === 'COLOCANDO' || powerUpSeleccionado?.id === 'esc' || powerUpSeleccionado?.id === 'mine') ? celdasSombra : []}
                 alEntrarCelda={(f, c) => manejarHover(f, c, false)}
                 alSalirTablero={() => setCeldasSombra([])}
@@ -874,7 +877,7 @@ function JuegoPrivada({ alSalir, configuracion ,usuario}) {
                 alSalirTablero={() => setCeldasSombra([])}
               />
 
-              <Inventario 
+              <Inventario
                 inventarioMio={inventarioMio}
                 powerUpSeleccionado={powerUpSeleccionado}
                 alSeleccionar={setPowerUpSeleccionado}
@@ -911,7 +914,7 @@ function JuegoPrivada({ alSalir, configuracion ,usuario}) {
 }
 
 const estiloBotonSalir = {
-  position: 'absolute', top: '20px', left: '20px', background: '#ef4444', 
+  position: 'absolute', top: '20px', left: '20px', background: '#ef4444',
   color: 'white', border: 'none', padding: '10px 20px', borderRadius: '5px', cursor: 'pointer'
 };
 
