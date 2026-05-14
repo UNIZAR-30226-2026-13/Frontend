@@ -13,6 +13,9 @@ class SocketService {
       const token = localStorage.getItem('authToken');
       console.log('Auth token found:', token ? 'yes' : 'no');
 
+      const token = localStorage.getItem('authToken');
+      console.log('Auth token found:', token ? 'yes' : 'no');
+
       this.socket = io(SOCKET_URL, {
         withCredentials: true,
         transports: ['polling', 'websocket'],
