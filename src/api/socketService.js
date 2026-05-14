@@ -10,7 +10,8 @@ class SocketService {
   conectar() {
     if (!this.socket) {
       this.socket = io(SOCKET_URL, {
-        withCredentials: true 
+        withCredentials: true,
+        transports: ['polling']
       });
     }
   }
@@ -25,14 +26,14 @@ class SocketService {
   //emits
 
   unirseSalaPrivada() {
-    if (this.socket) this.socket.emit('join_room'); 
+    if (this.socket) this.socket.emit('join_room');
   }
 
   //listeners
 
   onPartidaEncontrada(callback) {
     if (this.socket) {
-        this.socket.off('partidaEncontrada'); 
+        this.socket.off('partidaEncontrada');
         this.socket.on('partidaEncontrada', callback);
     }
   }
