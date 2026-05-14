@@ -10,13 +10,10 @@ class SocketService {
   conectar() {
     console.log('Connecting to socket at:', SOCKET_URL);
     if (!this.socket) {
-      const token = localStorage.getItem('token');
-      console.log('Auth token found:', token ? 'yes' : 'no');
 
       this.socket = io(SOCKET_URL, {
         withCredentials: true,
         transports: ['polling', 'websocket'],
-        auth: token ? { token } : undefined
       });
 
       this.socket.on('connect', () => {
@@ -38,8 +35,8 @@ class SocketService {
 
   //emits
 
-  unirseSalaPrivada() {
-    if (this.socket) this.socket.emit('join_room');
+  unirseSalaPrivada(username) {
+    if (this.socket) this.socket.emit('join_room', { room: username });
   }
 
   //listeners
