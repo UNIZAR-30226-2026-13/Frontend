@@ -121,11 +121,23 @@ function JuegoPrivada({ alSalir, configuracion ,usuario}) {
 
 
   useEffect(() => {
-    //encendemos comunicaciones y nos unimos a la sala
     socketService.conectar();
-    //si tenemos codigo nos unimos
-    if (codigoSala && usuario?.username) {
-      socketService.unirseSalaPrivada(usuario.username);
+
+    // Listen for socket connection before joining room
+    const socket = socketService.socket;
+    if (!socket) return;
+
+    const handleConnect = () => {
+      console.log('Socket ready, joining room:', usuario?.username);
+      if (codigoSala && usuario?.username) {
+        socketService.unirseSalaPrivada(usuario.username);
+      }
+    };
+
+    if (socket.connected) {
+      handleConnect();
+    } else {
+      socket.once('connect', handleConnect);
     }
 
     //cuando el rival mete el codigo
@@ -155,11 +167,12 @@ function JuegoPrivada({ alSalir, configuracion ,usuario}) {
     socketService.onActualizarEstado(manejarActualizacion);
 
     return () => {
-       if (socketService) {
-           socketService.desconectar();
-       }
+       if (socket) {
+        socket.off('connect', handleConnect);
+      }
+      socketService.desconectar();
     };
-  }, [codigoSala]);
+  }, [codigoSala, usuario?.username]);
 
   /*useEffect(() => {
     prepararPartida();
